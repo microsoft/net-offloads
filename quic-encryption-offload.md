@@ -64,6 +64,8 @@ typedef struct {
 
 If QEO is not supported by the operating system, then the `getsockopt` call will fail with status `WSAEINVAL`. This should be treated the same as the case where no cipher types are supported (i.e. the app should encrypt its own QUIC packets).
 
+> **TODO -** The "support" only makes sense in the context of a particular interface. If the socket is bound first then it's clear which interface we want to query; but what about unbound sockets?
+
 > **TODO -** Add text about RX offload.
 
 > **TODO -** What above is optional vs required?
@@ -72,8 +74,6 @@ If QEO is not supported by the operating system, then the `getsockopt` call will
 ### Establishing encryption parameters for a connection
 
 If QEO is supported, the app then establishes crypto parameters for a connection by setting the `SO_QEO_CONNECTION` socket option with an option value of type `QEO_CONNECTION`.
-
-> **TODO -** Destination IP/port must be added to QEO_CONNECTION as part of the lookup key.
 
 ```C
 typedef enum {
@@ -88,11 +88,16 @@ typedef struct {
     BOOLEAN IsTransmit;
     uint32_t QuicVersion;
     NDIS_QUIC_CIPHER_TYPE CipherType;
+    uint8_t PayloadKeyLength;
     uint8_t PayloadKey[32];
+    uint8_t HeaderKeyLength;
     uint8_t HeaderKey[32];
     uint8_t PayloadIv[12];
+    uint16_t Port;
+    ADDRESS_FAMILY AddressFamily;
+    uint8_t Address[16];
     uint8_t ConnectionIdLength;
-    uint8_t ConnectionId[MAX_CID_LENGTH]; // Or variable length
+    uint8_t ConnectionId[MAX_CID_LENGTH];
 } QEO_CONNECTION;
 ```
 
@@ -118,6 +123,9 @@ typedef struct {
 
 The `ConnectionIdLength` is passed to help the offload provider read the connection ID (which is used as a lookup key for the previously-established encryption parameters) from the packet buffer.
 
+### Receiving packets
+
+> **TODO**
 
 ## TCPIP updates for QEO
 
@@ -139,13 +147,14 @@ The miniport driver advertises QEO capability during initialization with the `Qu
 
 ```C
 typedef struct {
-    // TODO: QUIC version
     uint8_t AesGcm128 : 1;
     uint8_t AesGcm256 : 1;
     uint8_t ChaCha20Poly1305 : 1;
     uint8_t AesCcm128 : 1;
     uint8_t Receive : 1;
     uint8_t Transmit : 1;
+    uint32_t QuicVersionCount;
+    uint32_t QuicVersions[1]; // Variable length
  } NDIS_QUIC_ENCRYPTION_OFFLOAD;
 ```
 
@@ -164,8 +173,6 @@ The current QEO configuration can be queried with `OID_TCP_OFFLOAD_CURRENT_CONFI
 
 Before the NDIS protocol driver posts packets for QEO, it first establishes encryption parameters for the associated QUIC connection by issuing `OID_QUIC_CONNECTION_ENCRYPTION`. The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains a pointer to an `NDIS_QUIC_CONNECTION`:
 
-> **TODO -** Destination IP/port must be added to `NDIS_QUIC_CONNECTION` as part of the lookup key.
-
 ```C
 typedef enum {
     AesGcm128,
@@ -179,15 +186,20 @@ typedef struct _NDIS_QUIC_CONNECTION {
     BOOLEAN IsTransmit;
     uint32_t QuicVersion;
     NDIS_QUIC_CIPHER_TYPE CipherType;
+    uint8_t PayloadKeyLength;
     uint8_t PayloadKey[32];
+    uint8_t HeaderKeyLength;
     uint8_t HeaderKey[32];
     uint8_t PayloadIv[12];
+    uint16_t Port; // Destination port.
+    ADDRESS_FAMILY AddressFamily;
+    uint8_t Address[16]; // Destination IP address.
     uint8_t ConnectionIdLength;
-    uint8_t ConnectionId[MAX_CID_LENGTH]; // Or variable length
+    uint8_t ConnectionId[MAX_CID_LENGTH];
 } NDIS_QUIC_CONNECTION;
 ```
 
-The protocol driver later deletes the state for the connection with `OID_QUIC_CONNECTION_ENCRYPTION`. The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID also contains a pointer to an `NDIS_QUIC_CONNECTION`, but only the `ConnectionIdLength` and `ConnectionId` fields are used (**TODO**: and the destination port/ip).
+The protocol driver later deletes the state for the connection with `OID_QUIC_CONNECTION_ENCRYPTION`. The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID also contains a pointer to an `NDIS_QUIC_CONNECTION`, but only the `Port`, `Address Family`, `Address`, `ConnectionIdLength`, and `ConnectionId` fields are used.
 
 
 ### Sending packets
@@ -211,4 +223,10 @@ NOTE: Normally the encryption parameters for the associated connection will have
 
 > **TODO -** What about nonsequential packets? If we’re just passing a `NextPacketNumber` then how will that work?
 
-> **TODO -** For RX- when decryption fails, what to do? (two cases: connection hasn't been plumbed, and connection has been plumbed but decryption fails due to invalid packet)
+
+### Receiving packets
+
+> **TODO -** When decryption fails, what to do? (two cases: connection hasn't been plumbed, and connection has been plumbed but decryption fails due to invalid packet)
+
+> **TODO** everything else
+ 
