@@ -18,24 +18,24 @@ Developers of other QUIC implementations have claimed a 5-8% memory bandwidth re
 
 This section is not directly about QEO, but provides context on an existing offload with which there may be interactions.
 
-Today MsQuic uses USO to send a batch of UDP packets in a single syscall. On Windows, it first calls getsockopt with option UDP_SEND_MSG_SIZE to query for support of USO, and then calls setsockopt with UDP_SEND_MSG_SIZE to tell the USO provider the MTU size to use to split a buffer into multiple packets. Once the MTU has been set, QUIC calls WSASendMsg with a buffer (or a chain of buffers according to WSASendMsg gather semantics) containing multiple packets. The kernel creates a large UDP datagram from this buffer and posts it to the NDIS miniport, which breaks down the large datagram into a set of MTU-sized datagrams.
+Today MsQuic uses USO to send a batch of UDP datagrams in a single syscall. On Windows, it first calls `getsockopt` with option `UDP_SEND_MSG_SIZE` to query for support of USO, and then calls `setsockopt` with `UDP_SEND_MSG_SIZE` to tell the USO provider the MTU size to use to split a buffer into multiple datagrams. Once the MTU has been set, QUIC calls `WSASendMsg` with a buffer (or a chain of buffers according to `WSASendMsg` gather semantics) containing multiple datagrams. The kernel creates a large UDP datagram from this buffer and posts it to the NDIS miniport, which breaks down the large datagram into a set of MTU-sized datagrams.
 
 Windows USO spec: https://learn.microsoft.com/en-us/windows-hardware/drivers/network/udp-segmentation-offload-uso-
 
-Linux also provides this feature, but calls it “GSO” rather than “USO”.
+Linux also provides this feature, but calls it "GSO" rather than "USO".
 
-QEO is orthogonal to USO and usable either with or without it: if USO is enabled, then the app can post multiple packets in a single WSASend call; and if QEO is enabled, the packet[s] are posted unencrypted.
+QEO is orthogonal to USO and usable either with or without it: if USO is enabled, then the app can post multiple datagrams in a single send call; and if QEO is enabled, the datagram[s] are posted unencrypted.
 
 
 ## Linux API
 
-Linux developers are working on a send-side kernel/hardware encryption offload: https://lore.kernel.org/all/97789971-7cf5-ede1-11e2-df6494e75e44@gmail.com/ The focus on sender side is justified by the claim that server-side networking is typically send-dominant.
+Linux developers are working on a send-side kernel/hardware encryption offload: https://lore.kernel.org/all/97789971-7cf5-ede1-11e2-df6494e75e44@gmail.com/. The focus on sender side is justified by the claim that server-side networking is typically send-dominant.
 
-The general API in linux is:
+The general API in Linux is:
 
--The app associates a connection ID with encryption params (key, iv, cipher) with socket option UDP_QUIC_ADD_TX_CONNECTION. This state is removed when the socket is closed, or it can be removed explicitly with UDP_QUIC_DEL_TX_CONNECTION (**TODO**: there is discussion ongoing about using tuples instead of or alongside connection ID).
+-The app associates a connection ID with encryption params (key, iv, cipher) with socket option `UDP_QUIC_ADD_TX_CONNECTION`. This state is removed when the socket is closed, or it can be removed explicitly with `UDP_QUIC_DEL_TX_CONNECTION` (**TODO**: there is discussion ongoing about using tuples instead of or alongside connection ID).
 
--GSO is optionally set up with socket option UDP_SEGMENT (this value can be overridden per-send with ancillary data).
+-GSO is optionally set up with socket option `UDP_SEGMENT` (this value can be overridden per-send with ancillary data).
 
 -Sendmsg is called with some ancillary data: the connection ID length, the next packet number, and a flags field.
 
@@ -63,7 +63,7 @@ typedef struct {
 } QEO_SUPPORT;
 ```
 
-If QEO is not supported by the operating system, then the getsockopt call will fail with status `WSAEINVAL`. This should be treated the same as the case where no cipher types are supported (i.e. the app should encrypt its own QUIC packets).
+If QEO is not supported by the operating system, then the `getsockopt` call will fail with status `WSAEINVAL`. This should be treated the same as the case where no cipher types are supported (i.e. the app should encrypt its own QUIC packets).
 
 > **TODO -** consider how interface cipher support should interact with the cipher negotiation that happens with the peer.
 
@@ -98,7 +98,7 @@ typedef struct {
 
 ### Sending packets
 
-The app then calls `WSASendMsg` with an unencrypted packet (or, if USO is also being used, a set of unencrypted packets). The packet[s] must be smaller than the current MTU by the size of the authentication tag, which is currently 16 bytes for all supported ciphers. This leaves space for the tag to be added to the packet during encryption.
+The app then calls `WSASendMsg` with an unencrypted QUIC packet (or, if USO is also being used, a set of unencrypted QUIC packets). The packet[s] must be smaller than the current MTU by the size of the authentication tag, which is currently 16 bytes for all supported ciphers. This leaves space for the tag to be added to the packet during encryption.
 
 The app passes ancillary data to `WSASendMsg` in the form of `QEO_ANCILLARY_DATA`:
 
@@ -109,9 +109,9 @@ typedef struct {
 } QEO_ANCILLARY_DATA;
 ```
 
-NextPacketNumber is the uncompressed packet number of the packet (or of the first packet in the batch). This is passed because the uncompressed packet number is an input for encryption and because the offload provider cannot read the packet number from the packet buffer without dealing with packet number compression.
+`NextPacketNumber` is the uncompressed QUIC packet number of the packet (or of the first packet in the batch). This is passed down because the uncompressed packet number is an input for encryption and because the offload provider cannot read the packet number from the packet buffer without dealing with packet number compression.
 
-The ConnectionIdLength is passed to help the offload provider read the connection ID (which is used as a lookup key for the previously-established encryption parameters) from the packet buffer.
+The `ConnectionIdLength` is passed to help the offload provider read the connection ID (which is used as a lookup key for the previously-established encryption parameters) from the packet buffer.
 
 
 ## TCPIP updates for QEO
@@ -177,7 +177,7 @@ typedef struct _NDIS_QUIC_CONNECTION {
 } NDIS_QUIC_CONNECTION;
 ```
 
-The protocol driver later deletes the state for the connection with `OID_QUIC_CONNECTION_ENCRYPTION_DELETE`. The InformationBuffer field of the NDIS_OID_REQUEST for this OID also contains a pointer to an `NDIS_QUIC_CONNECTION`, but only the `ConnectionIdLength` and `ConnectionId` fields are used (**TODO**: and the destination port/ip).
+The protocol driver later deletes the state for the connection with `OID_QUIC_CONNECTION_ENCRYPTION_DELETE`. The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID also contains a pointer to an `NDIS_QUIC_CONNECTION`, but only the `ConnectionIdLength` and `ConnectionId` fields are used (**TODO**: and the destination port/ip).
 
 
 ### Sending packets
@@ -199,6 +199,6 @@ NOTE: Normally the encryption parameters for the associated connection will have
 
 > **TODO -** Explicitly mention that usage of QEO with USO must be supported.
 
-> **TODO -** What about nonsequential packets? If we’re just passing a “NextPacketNumber” then how will that work?
+> **TODO -** What about nonsequential packets? If we’re just passing a `NextPacketNumber` then how will that work?
 
 > **TODO -** For RX- when decryption fails, what to do? (two cases: connection hasn't been plumbed, and connection has been plumbed but decryption fails due to invalid packet)
