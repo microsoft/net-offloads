@@ -1,6 +1,7 @@
 # QUIC Encryption Offload (QEO)
 
-**NB: This document is a work in progress.**
+> **Note**
+> This document is a work in progress.
 
 This document describes a proposed NDIS offload called QEO which offloads the encryption of QUIC packets to hardware. The perspective is mainly that of MsQuic, but the offload will be usable by other QUIC implementations.
 
@@ -8,9 +9,9 @@ Today, MsQuic builds each packet by writing headers and copying application data
 
 Developers of other QUIC implementations have claimed a 5-8% memory bandwidth reduction from combining the application data copy with encryption. Moreover, if the work can be offloaded to hardware, those developers have claimed the main CPU can be relieved of 7% of the CPU utilization of QUIC. The CPU requirement of encryption (and therefore the potential benefit of offloading it) has an even larger proportion in MsQuic.
 
-**TODO**: Mention in appropriate places that offload is only for short header packets.
+> **TODO -** Mention in appropriate places that offload is only for short header packets.
 
-**TODO**: Add RX offload (at least add a "tx/rx" boolean to API signatures so that "in" can be supported in the future).
+> **TODO -** Add RX offload (at least add a "tx/rx" boolean to API signatures so that "in" can be supported in the future).
 
 
 ## UDP Segmentation Offload (USO)
@@ -64,16 +65,16 @@ typedef struct {
 
 If QEO is not supported by the operating system, then the getsockopt call will fail with status `WSAEINVAL`. This should be treated the same as the case where no cipher types are supported (i.e. the app should encrypt its own QUIC packets).
 
-**TODO**: consider how interface cipher support should interact with the cipher negotiation that happens with the peer.
+> **TODO -** consider how interface cipher support should interact with the cipher negotiation that happens with the peer.
 
 
 ### Establishing encryption parameters for a connection
 
-**TODO**: support adding N and removing M connections in one request for key update?
+> **TODO -** support adding N and removing M connections in one request for key update?
 
 If QEO is supported, the app then establishes crypto parameters for a connection by setting the `SO_QEO_CONNECTION` socket option with an option value of type `QEO_CONNECTION`.
 
-**TODO**: Destination IP/port must be added to QEO_CONNECTION as part of the lookup key.
+> **TODO -** Destination IP/port must be added to QEO_CONNECTION as part of the lookup key.
 
 ```C
 typedef enum {
@@ -117,9 +118,9 @@ The ConnectionIdLength is passed to help the offload provider read the connectio
 
 This section describes necessary updates in the Windows network stack to support QEO.
 
-**TODO**: When doing S/W USO and H/W QEO, don’t do xsum in UDP.
+> **TODO -** When doing S/W USO and H/W QEO, don’t do xsum in UDP.
 
-**TODO**: Need to maintain mirror table of plumbed connections in TCPIP for when we switch to and from S/W offload.
+> **TODO -** Need to maintain mirror table of plumbed connections in TCPIP for when we switch to and from S/W offload.
 
 
 ## NDIS API
@@ -145,18 +146,18 @@ QEO can be enabled or disabled using `OID_TCP_OFFLOAD_PARAMETERS` with the `Quic
 
 The current QEO configuration can be queried with `OID_TCP_OFFLOAD_CURRENT_CONFIG`. NDIS handles this OID and does not pass it down to the miniport driver.
 
-**TODO**: what happens to existing plumbed connections when the config changes? (e.g. what if a connection was using a cipher type and that cipher type has been removed?)
+> **TODO -** what happens to existing plumbed connections when the config changes? (e.g. what if a connection was using a cipher type and that cipher type has been removed?)
 
 
 ### Establishing encryption parameters for a connection
 
-**TODO**: what type of OID to use for `OID_QUIC_CONNECTION_ENCRYPTION_ADD` / `OID_QUIC_CONNECTION_ENCRYPTION_DELETE`? Some OIDs have high latency. If no type of OID is fast enough, perhaps instead of OID to plumb a connection, use a special OOB in first packet.
+> **TODO -** what type of OID to use for `OID_QUIC_CONNECTION_ENCRYPTION_ADD` / `OID_QUIC_CONNECTION_ENCRYPTION_DELETE`? Some OIDs have high latency. If no type of OID is fast enough, perhaps instead of OID to plumb a connection, use a special OOB in first packet.
 
-**TODO**: specify how many connections can be offloaded?
+> **TODO -** specify how many connections can be offloaded?
 
 Before the NDIS protocol driver posts packets for QEO, it first establishes encryption parameters for the associated QUIC connection by issuing `OID_QUIC_CONNECTION_ENCRYPTION_ADD`. The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains a pointer to an `NDIS_QUIC_CONNECTION`:
 
-**TODO**: Destination IP/port must be added to `NDIS_QUIC_CONNECTION` as part of the lookup key.
+> **TODO -** Destination IP/port must be added to `NDIS_QUIC_CONNECTION` as part of the lookup key.
 
 ```C
 typedef enum {
@@ -181,7 +182,7 @@ The protocol driver later deletes the state for the connection with `OID_QUIC_CO
 
 ### Sending packets
 
-**TODO**: packet coalescing (multiple QUIC packets per datagram)??
+> **TODO -** packet coalescing (multiple QUIC packets per datagram)??
 
 The NDIS protocol driver posts packets for QEO with OOB data (which can be queried using the `NET_BUFFER_LIST_INFO` macro with an `_Id` of `QuicEncryptionOffloadInfo`) with the following format:
 
@@ -194,10 +195,10 @@ typedef struct _NDIS_QUIC_ENCRYPTION_NET_BUFFER_LIST_INFO {
 
 NOTE: Normally the encryption parameters for the associated connection will have been established with `OID_QUIC_CONNECTION_ENCRYPTION` for every QEO packet that is posted, but this is not guaranteed. If a QEO packet is posted and no matching encryption parameters are established, the `NET_BUFFER_LIST` must be immediately completed by the miniport without transmitting the packet. (**TODO**: with what status code?)
 
-**TODO**: Miniport will have to compute checksums
+> **TODO -** Miniport will have to compute checksums
 
-**TODO**: Explicitly mention that usage of QEO with USO must be supported.
+> **TODO -** Explicitly mention that usage of QEO with USO must be supported.
 
-**TODO**: What about nonsequential packets? If we’re just passing a “NextPacketNumber” then how will that work?
+> **TODO -** What about nonsequential packets? If we’re just passing a “NextPacketNumber” then how will that work?
 
-**TODO**: For RX- when decryption fails, what to do? (two cases: connection hasn't been plumbed, and connection has been plumbed but decryption fails due to invalid packet)
+> **TODO -** For RX- when decryption fails, what to do? (two cases: connection hasn't been plumbed, and connection has been plumbed but decryption fails due to invalid packet)
