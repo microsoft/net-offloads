@@ -5,9 +5,9 @@
 
 This document describes a proposed NDIS offload called QEO which offloads the encryption of QUIC packets to hardware. The perspective is mainly that of MsQuic, but the offload will be usable by other QUIC implementations.
 
-Today, MsQuic builds each packet by writing headers and copying application data into an MTU-sized buffer, uses an encryption library (bcrypt or openssl) to encrypt the packet in place, and then posts the packet (alone or in a batch) to the kernel.
+Today, MsQuic builds each QUIC packet by writing headers and copying application data into an MTU-sized (or larger in the case of USO) buffer, uses an encryption library (bcrypt or openssl) to encrypt the packet in place, and then posts the packet (alone or in a batch) to the kernel.
 
-Developers of other QUIC implementations have claimed a 5-8% memory bandwidth reduction from combining the application data copy with encryption. Moreover, if the work can be offloaded to hardware, those developers have claimed the main CPU can be relieved of 7% of the CPU utilization of QUIC. The CPU requirement of encryption (and therefore the potential benefit of offloading it) has an even larger proportion in MsQuic.
+Developers of other QUIC implementations have claimed a 5-8% memory bandwidth reduction from combining the application data copy with encryption. Moreover, if the work can be offloaded to hardware, those developers have claimed the main CPU can be relieved of 7% of the CPU utilization of QUIC. The CPU requirement of encryption (and therefore the potential benefit of offloading it) has an even larger proportion in MsQuic. MsQuic performance data has shown that as much as 70% of a single CPU can be doing encryption in bulk throughput scenarios.
 
 > **TODO -** Mention in appropriate places that offload is only for short header packets.
 
@@ -18,7 +18,7 @@ Developers of other QUIC implementations have claimed a 5-8% memory bandwidth re
 
 This section is not directly about QEO, but provides context on an existing offload with which there may be interactions.
 
-Today MsQuic uses USO to send a batch of UDP datagrams in a single syscall. On Windows, it first calls `getsockopt` with option `UDP_SEND_MSG_SIZE` to query for support of USO, and then calls `setsockopt` with `UDP_SEND_MSG_SIZE` to tell the USO provider the MTU size to use to split a buffer into multiple datagrams. Once the MTU has been set, QUIC calls `WSASendMsg` with a buffer (or a chain of buffers according to `WSASendMsg` gather semantics) containing multiple datagrams. The kernel creates a large UDP datagram from this buffer and posts it to the NDIS miniport, which breaks down the large datagram into a set of MTU-sized datagrams.
+Today, MsQuic uses USO to send a batch of UDP datagrams in a single syscall. On Windows, it first calls `getsockopt` with option `UDP_SEND_MSG_SIZE` to query for support of USO, and then calls `setsockopt` with `UDP_SEND_MSG_SIZE` to tell the USO provider the MTU size to use to split a buffer into multiple datagrams. Once the MTU has been set, QUIC calls `WSASendMsg` with a buffer (or a chain of buffers according to `WSASendMsg` gather semantics) containing multiple datagrams. The kernel creates a large UDP datagram from this buffer and posts it to the NDIS miniport, which breaks down the large datagram into a set of MTU-sized datagrams.
 
 Windows USO spec: https://learn.microsoft.com/en-us/windows-hardware/drivers/network/udp-segmentation-offload-uso-
 
