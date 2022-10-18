@@ -3,15 +3,11 @@
 > **Note**
 > This document is a work in progress.
 
-This document describes a proposed NDIS offload called QEO which offloads the encryption of QUIC packets to hardware. The perspective is mainly that of MsQuic, but the offload will be usable by other QUIC implementations.
+This document describes a proposed NDIS offload called QEO which offloads the encryption of QUIC short header packets to hardware. The perspective is mainly that of MsQuic, but the offload will be usable by other QUIC implementations.
 
 Today, MsQuic builds each QUIC packet by writing headers and copying application data into an MTU-sized (or larger in the case of USO) buffer, uses an encryption library (bcrypt or openssl) to encrypt the packet in place, and then posts the packet (alone or in a batch) to the kernel.
 
 Developers of other QUIC implementations have claimed a 5-8% memory bandwidth reduction from combining the application data copy with encryption. Moreover, if the work can be offloaded to hardware, those developers have claimed the main CPU can be relieved of 7% of the CPU utilization of QUIC. The CPU requirement of encryption (and therefore the potential benefit of offloading it) has an even larger proportion (70%) in MsQuic.
-
-> **TODO -** Mention in appropriate places that offload is only for short header packets.
-
-> **TODO -** Add RX offload (at least add a "tx/rx" boolean to API signatures so that "in" can be supported in the future).
 
 
 ## UDP Segmentation Offload (USO)
@@ -55,22 +51,25 @@ An app first checks for QEO support by querying the `SO_QEO_SUPPORT` socket opti
 
 ```C
 typedef struct {
-    // TODO: QUIC version
+    uint8_t Receive : 1;
+    uint8_t Transmit : 1;
     uint8_t AesGcm128 : 1;
     uint8_t AesGcm256 : 1;
     uint8_t ChaCha20Poly1305 : 1;
     uint8_t AesCcm128 : 1;
+    uint32_t QuicVersionCount;
+    uint32_t QuicVersions[1]; // Variable length
 } QEO_SUPPORT;
 ```
 
 If QEO is not supported by the operating system, then the `getsockopt` call will fail with status `WSAEINVAL`. This should be treated the same as the case where no cipher types are supported (i.e. the app should encrypt its own QUIC packets).
 
-> **TODO -** consider how interface cipher support should interact with the cipher negotiation that happens with the peer.
+> **TODO -** Add text about RX offload.
+
+> **TODO -** What above is optional vs required?
 
 
 ### Establishing encryption parameters for a connection
-
-> **TODO -** support adding N and removing M connections in one request for key update?
 
 If QEO is supported, the app then establishes crypto parameters for a connection by setting the `SO_QEO_CONNECTION` socket option with an option value of type `QEO_CONNECTION`.
 
@@ -85,15 +84,21 @@ typedef enum {
 } QEO_CIPHER_TYPE;
 
 typedef struct {
-    // TODO: QUIC version
+    BOOLEAN IsAdd;
+    BOOLEAN IsTransmit;
+    uint32_t QuicVersion;
     NDIS_QUIC_CIPHER_TYPE CipherType;
-    uint8_t PayloadKey[16];
+    uint8_t PayloadKey[32];
+    uint8_t HeaderKey[32];
     uint8_t PayloadIv[12];
-    uint8_t HeaderKey[16];
     uint8_t ConnectionIdLength;
-    uint8_t ConnectionId[0]; // Variable length
+    uint8_t ConnectionId[MAX_CID_LENGTH]; // Or variable length
 } QEO_CONNECTION;
 ```
+
+> **TODO -** Explain meaning of fields.
+
+> **TODO -** support adding N and removing M connections in one request for key update
 
 
 ### Sending packets
@@ -125,7 +130,7 @@ This section describes necessary updates in the Windows network stack to support
 
 ## NDIS API
 
-The NDIS interface for QEO is used for communication between TCPIP (which posts NBLs containing unencrypted QUIC packets) and the NDIS miniport driver (which encrypts and sends the QUIC packets).
+The NDIS interface for QEO is used for communication between TCPIP (which posts NBLs containing unencrypted QUIC short header packets) and the NDIS miniport driver (which encrypts and sends the QUIC packets).
 
 
 ### Configuring and advertising QEO capability
@@ -139,6 +144,8 @@ typedef struct {
     uint8_t AesGcm256 : 1;
     uint8_t ChaCha20Poly1305 : 1;
     uint8_t AesCcm128 : 1;
+    uint8_t Receive : 1;
+    uint8_t Transmit : 1;
  } NDIS_QUIC_ENCRYPTION_OFFLOAD;
 ```
 
@@ -151,11 +158,11 @@ The current QEO configuration can be queried with `OID_TCP_OFFLOAD_CURRENT_CONFI
 
 ### Establishing encryption parameters for a connection
 
-> **TODO -** what type of OID to use for `OID_QUIC_CONNECTION_ENCRYPTION_ADD` / `OID_QUIC_CONNECTION_ENCRYPTION_DELETE`? Some OIDs have high latency. If no type of OID is fast enough, perhaps instead of OID to plumb a connection, use a special OOB in first packet.
+> **TODO -** what type of OID to use for `OID_QUIC_CONNECTION_ENCRYPTION`? Some OIDs have high latency. If no type of OID is fast enough, perhaps instead of OID to plumb a connection, use a special OOB in first packet.
 
 > **TODO -** specify how many connections can be offloaded?
 
-Before the NDIS protocol driver posts packets for QEO, it first establishes encryption parameters for the associated QUIC connection by issuing `OID_QUIC_CONNECTION_ENCRYPTION_ADD`. The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains a pointer to an `NDIS_QUIC_CONNECTION`:
+Before the NDIS protocol driver posts packets for QEO, it first establishes encryption parameters for the associated QUIC connection by issuing `OID_QUIC_CONNECTION_ENCRYPTION`. The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains a pointer to an `NDIS_QUIC_CONNECTION`:
 
 > **TODO -** Destination IP/port must be added to `NDIS_QUIC_CONNECTION` as part of the lookup key.
 
@@ -168,16 +175,19 @@ typedef enum {
 } NDIS_QUIC_CIPHER_TYPE;
 
 typedef struct _NDIS_QUIC_CONNECTION {
+    BOOLEAN IsAdd;
+    BOOLEAN IsTransmit;
+    uint32_t QuicVersion;
     NDIS_QUIC_CIPHER_TYPE CipherType;
-    uint8_t PayloadKey[16]; // TODO: is this enough?
+    uint8_t PayloadKey[32];
+    uint8_t HeaderKey[32];
     uint8_t PayloadIv[12];
-    uint8_t HeaderKey[16];
     uint8_t ConnectionIdLength;
-    uint8_t ConnectionId[0]; // Variable length
+    uint8_t ConnectionId[MAX_CID_LENGTH]; // Or variable length
 } NDIS_QUIC_CONNECTION;
 ```
 
-The protocol driver later deletes the state for the connection with `OID_QUIC_CONNECTION_ENCRYPTION_DELETE`. The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID also contains a pointer to an `NDIS_QUIC_CONNECTION`, but only the `ConnectionIdLength` and `ConnectionId` fields are used (**TODO**: and the destination port/ip).
+The protocol driver later deletes the state for the connection with `OID_QUIC_CONNECTION_ENCRYPTION`. The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID also contains a pointer to an `NDIS_QUIC_CONNECTION`, but only the `ConnectionIdLength` and `ConnectionId` fields are used (**TODO**: and the destination port/ip).
 
 
 ### Sending packets
