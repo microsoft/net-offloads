@@ -55,22 +55,62 @@ An app first checks for QEO support by querying the `SO_QEO_SUPPORT` socket opti
 typedef struct {
     uint8_t Receive : 1;
     uint8_t Transmit : 1;
-    uint8_t AesGcm128 : 1;
-    uint8_t AesGcm256 : 1;
+    uint8_t Aes128Gcm : 1;
+    uint8_t Aes256Gcm : 1;
     uint8_t ChaCha20Poly1305 : 1;
-    uint8_t AesCcm128 : 1;
+    uint8_t Aes128Ccm : 1;
     uint32_t QuicVersionCount;
     uint32_t QuicVersions[1]; // Variable length
 } QEO_SUPPORT;
 ```
 
-If QEO is not supported by the operating system, then the `getsockopt` call will fail with status `WSAEINVAL`. This should be treated the same as the case where no cipher types are supported (i.e. the app should encrypt its own QUIC packets).
+### Parameters
+
+#### Receive
+
+This bit indicates the decryption offload for the receive path is supported.
+
+#### Transmit
+
+This bit indicates the encryption offload for the transmit path is supported.
+
+#### Aes128Gcm
+
+This bit indicates the AEAD_AES_128_GCM cryptographic algorithm is supported.
+
+#### Aes256Gcm
+
+This bit indicates the AEAD_AES_256_GCM cryptographic algorithm is supported.
+
+#### ChaCha20Poly1305
+
+This bit indicates the AEAD_CHACHA20_POLY1305 cryptographic algorithm is supported.
+
+#### Aes128Ccm
+
+This bit indicates the AEAD_AES_128_CCM cryptographic algorithm is supported.
+
+#### QuicVersionCount
+
+This field indicates the number of items in the `QuicVersions` array.
+
+#### QuicVersions
+
+This array indicates the set of support QUIC version numbers that are supported.
+
+### Return value
+
+If no error occurs, `getsockopt` returns zero. If QEO is not supported by the operating system, then the `getsockopt` call will fail with status `WSAEINVAL`. This should be treated the same as the case where no cipher types are supported (i.e. the app should encrypt its own QUIC packets).
+
+### Remarks
+
+Since this structure is an indication of what (possibly partial) support level exists from the offload, some of the bits likely will not be set. But there are certain sets of bits where at least one of them must be set.
+
+- Either `Receive` or `Transmit` must be set.
+- Either `Aes128Gcm`, `Aes256Gcm`, `ChaCha20Poly1305`, or `Aes128Ccm` must be set.
+- `QuicVersionCount` must be at least one.
 
 > **TODO -** The "support" only makes sense in the context of a particular interface. If the socket is bound first then it's clear which interface we want to query; but what about unbound sockets?
-
-> **TODO -** Add text about RX offload.
-
-> **TODO -** What above is optional vs required?
 
 
 ## Establishing Encryption Parameters for a Connection
@@ -149,12 +189,12 @@ The miniport driver advertises QEO capability during initialization with the `Qu
 
 ```C
 typedef struct {
-    uint8_t AesGcm128 : 1;
-    uint8_t AesGcm256 : 1;
-    uint8_t ChaCha20Poly1305 : 1;
-    uint8_t AesCcm128 : 1;
     uint8_t Receive : 1;
     uint8_t Transmit : 1;
+    uint8_t Aes128Gcm : 1;
+    uint8_t Aes256Gcm : 1;
+    uint8_t ChaCha20Poly1305 : 1;
+    uint8_t Aes128Ccm : 1;
     uint32_t QuicVersionCount;
     uint32_t QuicVersions[1]; // Variable length
  } NDIS_QUIC_ENCRYPTION_OFFLOAD;
