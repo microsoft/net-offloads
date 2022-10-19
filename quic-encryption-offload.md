@@ -5,47 +5,49 @@
 
 This document describes a proposed NDIS offload called QEO which offloads the encryption of QUIC short header packets to hardware. The perspective is mainly that of MsQuic, but the offload will be usable by other QUIC implementations.
 
-Today, MsQuic builds each QUIC packet by writing headers and copying application data into an MTU-sized (or larger in the case of USO) buffer, uses an encryption library (bcrypt or openssl) to encrypt the packet in place, and then posts the packet (alone or in a batch) to the kernel.
+Today, MsQuic builds each QUIC packet by writing headers and copying application data into an MTU-sized (or larger in the case of USO) buffer, uses an encryption library (bcrypt or openssl) to encrypt the packet in place, and then posts the packet (alone or in a batch) to the kernel. When running MsQuic in "max throughput" mode (which parallelizes QUIC and UDP work), for bulk throughput scenarios (i.e., large file transfers), as much as 70% of a single CPU may be consumed by encryption. This constitutes the single largest CPU bottleneck in the scenario; and the single largest opportunity for offloading to hardware
 
-Developers of other QUIC implementations have claimed a 5-8% memory bandwidth reduction from combining the application data copy with encryption. Moreover, if the work can be offloaded to hardware, those developers have claimed the main CPU can be relieved of 7% of the CPU utilization of QUIC. The CPU requirement of encryption (and therefore the potential benefit of offloading it) has an even larger proportion (70%) in MsQuic.
+Developers of other QUIC implementations have claimed a 5-8% memory bandwidth reduction from combining the application data copy with encryption. Moreover, if the work can be offloaded to hardware, those developers have claimed the main CPU can be relieved of 7% of the CPU utilization of QUIC.
 
 
 ## UDP Segmentation Offload (USO)
 
-This section is not directly about QEO, but provides context on an existing offload with which there may be interactions.
+> **Note**
+> This section is not directly about QEO, but provides context on an existing offload with which there may be interactions.
 
-Today, MsQuic uses USO to send a batch of UDP datagrams in a single syscall. On Windows, it first calls `getsockopt` with option `UDP_SEND_MSG_SIZE` to query for support of USO, and then calls `setsockopt` with `UDP_SEND_MSG_SIZE` to tell the USO provider the MTU size to use to split a buffer into multiple datagrams. Once the MTU has been set, QUIC calls `WSASendMsg` with a buffer (or a chain of buffers according to `WSASendMsg` gather semantics) containing multiple datagrams. The kernel creates a large UDP datagram from this buffer and posts it to the NDIS miniport, which breaks down the large datagram into a set of MTU-sized datagrams.
-
-Windows USO spec: https://learn.microsoft.com/en-us/windows-hardware/drivers/network/udp-segmentation-offload-uso-
-
-Linux also provides this feature, but calls it "GSO" rather than "USO".
+Today, MsQuic uses USO on Windows to send a batch of UDP datagrams in a single syscall. It first calls `getsockopt` with option `UDP_SEND_MSG_SIZE` to query for support of USO, and then calls `setsockopt` with `UDP_SEND_MSG_SIZE` to tell the USO provider the MTU size to use to split a buffer into multiple datagrams. Once the MTU has been set, QUIC calls `WSASendMsg` with a buffer (or a chain of buffers according to `WSASendMsg` gather semantics) containing multiple datagrams. The kernel creates a large UDP datagram from this buffer and posts it to the NDIS miniport, which breaks down the large datagram into a set of MTU-sized datagrams.
 
 QEO is orthogonal to USO and usable either with or without it: if USO is enabled, then the app can post multiple datagrams in a single send call; and if QEO is enabled, the datagram[s] are posted unencrypted.
+
+Windows documentation can be found [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/network/udp-segmentation-offload-uso-). MsQuic also supports the Linux equivalent ([GSO](https://www.kernel.org/doc/html/latest/networking/segmentation-offloads.html#generic-segmentation-offload)).
 
 
 ## Linux API
 
-Linux developers are working on a send-side kernel/hardware encryption offload: https://lore.kernel.org/all/97789971-7cf5-ede1-11e2-df6494e75e44@gmail.com/. The focus on sender side is justified by the claim that server-side networking is typically send-dominant.
+> **Note**
+> The Linux interface is also a work in progress. The following indicates the current state of the proposal.
+
+Linux developers are working on a send-side kernel/hardware encryption offload. See [here](https://lore.kernel.org/all/97789971-7cf5-ede1-11e2-df6494e75e44@gmail.com/). The focus on sender side is justified by the claim that server-side networking is typically send-dominant.
 
 The general API in Linux is:
 
--The app associates a connection ID with encryption params (key, iv, cipher) with socket option `UDP_QUIC_ADD_TX_CONNECTION`. This state is removed when the socket is closed, or it can be removed explicitly with `UDP_QUIC_DEL_TX_CONNECTION` (**TODO**: there is discussion ongoing about using tuples instead of or alongside connection ID).
+- The app associates a connection ID with encryption params (key, iv, cipher) with socket option `UDP_QUIC_ADD_TX_CONNECTION`. This state is removed when the socket is closed, or it can be removed explicitly with `UDP_QUIC_DEL_TX_CONNECTION` (there is discussion ongoing about using tuples instead of or alongside connection ID).
 
--GSO is optionally set up with socket option `UDP_SEGMENT` (this value can be overridden per-send with ancillary data).
+- GSO is optionally set up with socket option `UDP_SEGMENT` (this value can be overridden per-send with ancillary data).
 
--Sendmsg is called with some ancillary data: the connection ID length, the next packet number, and a flags field.
+- Sendmsg is called with some ancillary data: the connection ID length, the next packet number, and a flags field.
 
--On key rollover, the app plumbs the new key.
+- On key rollover, the app plumbs the new key.
 
 If a hardware offload is supported by the network interface, then it is used; otherwise the kernel takes care of the encryption and segmentation for usermode.
 
 
-## Winsock API
+# Winsock API
 
 The proposed Winsock API for QEO is as follows.
 
 
-### Checking for QEO capability
+## Checking for QEO Capability
 
 An app first checks for QEO support by querying the `SO_QEO_SUPPORT` socket option. The option value is a `QEO_SUPPORT` structure describing the supported algorithms:
 
@@ -71,7 +73,7 @@ If QEO is not supported by the operating system, then the `getsockopt` call will
 > **TODO -** What above is optional vs required?
 
 
-### Establishing encryption parameters for a connection
+## Establishing Encryption Parameters for a Connection
 
 If QEO is supported, the app then establishes crypto parameters for a connection by setting the `SO_QEO_CONNECTION` socket option with an option value of type `QEO_CONNECTION`.
 
@@ -106,7 +108,7 @@ typedef struct {
 > **TODO -** support adding N and removing M connections in one request for key update
 
 
-### Sending packets
+## Sending Packets
 
 The app then calls `WSASendMsg` with an unencrypted QUIC packet (or, if USO is also being used, a set of unencrypted QUIC packets). The packet[s] must be smaller than the current MTU by the size of the authentication tag, which is currently 16 bytes for all supported ciphers. This leaves space for the tag to be added to the packet during encryption.
 
@@ -123,11 +125,11 @@ typedef struct {
 
 The `ConnectionIdLength` is passed to help the offload provider read the connection ID (which is used as a lookup key for the previously-established encryption parameters) from the packet buffer.
 
-### Receiving packets
+## Receiving Packets
 
 > **TODO**
 
-## TCPIP updates for QEO
+# TCPIP Updates for QEO
 
 This section describes necessary updates in the Windows network stack to support QEO.
 
@@ -136,12 +138,12 @@ This section describes necessary updates in the Windows network stack to support
 > **TODO -** Need to maintain mirror table of plumbed connections in TCPIP for when we switch to and from S/W offload.
 
 
-## NDIS API
+# NDIS API
 
 The NDIS interface for QEO is used for communication between TCPIP (which posts NBLs containing unencrypted QUIC short header packets) and the NDIS miniport driver (which encrypts and sends the QUIC packets).
 
 
-### Configuring and advertising QEO capability
+## Configuring and Advertising QEO Capability
 
 The miniport driver advertises QEO capability during initialization with the `QuicEncryption` field of an `NDIS_OFFLOAD` structure (with `Header.Revision = NDIS_OFFLOAD_REVISION_8` and `Header.Size = NDIS_SIZEOF_NDIS_OFFLOAD_REVISION_8`), which is passed to `NdisMSetMiniportAttributes`. The `QuicEncryption` field is of type `NDIS_QUIC_ENCRYPTION_OFFLOAD`:
 
@@ -165,7 +167,7 @@ The current QEO configuration can be queried with `OID_TCP_OFFLOAD_CURRENT_CONFI
 > **TODO -** what happens to existing plumbed connections when the config changes? (e.g. what if a connection was using a cipher type and that cipher type has been removed?)
 
 
-### Establishing encryption parameters for a connection
+## Establishing Encryption Parameters for a Connection
 
 > **TODO -** what type of OID to use for `OID_QUIC_CONNECTION_ENCRYPTION`? Some OIDs have high latency. If no type of OID is fast enough, perhaps instead of OID to plumb a connection, use a special OOB in first packet.
 
@@ -202,7 +204,7 @@ typedef struct _NDIS_QUIC_CONNECTION {
 The protocol driver later deletes the state for the connection with `OID_QUIC_CONNECTION_ENCRYPTION`. The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID also contains a pointer to an `NDIS_QUIC_CONNECTION`, but only the `Port`, `Address Family`, `Address`, `ConnectionIdLength`, and `ConnectionId` fields are used.
 
 
-### Sending packets
+## Sending Packets
 
 > **TODO -** packet coalescing (multiple QUIC packets per datagram)??
 
@@ -224,7 +226,7 @@ NOTE: Normally the encryption parameters for the associated connection will have
 > **TODO -** What about nonsequential packets? If we’re just passing a `NextPacketNumber` then how will that work?
 
 
-### Receiving packets
+## Receiving Packets
 
 > **TODO -** When decryption fails, what to do? (two cases: connection hasn't been plumbed, and connection has been plumbed but decryption fails due to invalid packet)
 
