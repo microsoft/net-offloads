@@ -135,6 +135,8 @@ This section describes necessary updates in the Windows network stack to support
 
 > **TODO -** When doing S/W USO and H/W QEO, don’t do xsum in UDP.
 
+> **TODO -** S/W encryption must happen for loopback packets.
+
 > **TODO -** Need to maintain mirror table of plumbed connections in TCPIP for when we switch to and from S/W offload.
 
 
