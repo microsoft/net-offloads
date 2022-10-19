@@ -3,6 +3,8 @@
 This repo is for defining various QUIC hardware offload specifications. When officially complete, these specs will
 be published at a more standard location (TBD).
 
+- [QUIC Encryption Offload](quic-encryption-offload.md) - Offloading QUIC short header packet encryption and decryption to the hardware.
+
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
