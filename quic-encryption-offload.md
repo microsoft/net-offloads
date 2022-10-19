@@ -3,7 +3,7 @@
 > **Note**
 > This document is a work in progress.
 
-This document describes a proposed NDIS offload called QEO which offloads the encryption of QUIC short header packets to hardware. The perspective is mainly that of MsQuic, but the offload will be usable by other QUIC implementations.
+This document describes a proposed NDIS offload called QEO which offloads the encryption (and decryption) of QUIC short header packets to hardware. The perspective is mainly that of MsQuic, but the offload will be usable by other QUIC implementations.
 
 Today, MsQuic builds each QUIC packet by writing headers and copying application data into an MTU-sized (or larger in the case of USO) buffer, uses an encryption library (bcrypt or openssl) to encrypt the packet in place, and then posts the packet (alone or in a batch) to the kernel. When running MsQuic in "max throughput" mode (which parallelizes QUIC and UDP work), for bulk throughput scenarios (i.e., large file transfers), as much as 70% of a single CPU may be consumed by encryption. This constitutes the single largest CPU bottleneck in the scenario; and the single largest opportunity for offloading to hardware.
 
