@@ -3,11 +3,12 @@
 > **Note**
 > This document is a work in progress.
 
-This document describes a proposed NDIS offload called QEO which offloads the encryption (and decryption) of QUIC short header packets to hardware. The perspective is mainly that of MsQuic, but the offload will be usable by other QUIC implementations.
+This document describes a proposed NDIS offload called QEO which offloads the encryption (and decryption) of QUIC short header packets to hardware.
+The perspective is mainly that of MsQuic, but the offload will be usable by other QUIC implementations.
 
-Today, MsQuic builds each QUIC packet by writing headers and copying application data into an MTU-sized (or larger in the case of USO) buffer, uses an encryption library (bcrypt or openssl) to encrypt the packet in place, and then posts the packet (alone or in a batch) to the kernel. When running MsQuic in "max throughput" mode (which parallelizes QUIC and UDP work), for bulk throughput scenarios (i.e., large file transfers), as much as 70% of a single CPU may be consumed by encryption. This constitutes the single largest CPU bottleneck in the scenario; and the single largest opportunity for offloading to hardware.
-
-Developers of other QUIC implementations have claimed a 5-8% memory bandwidth reduction from combining the application data copy with encryption. Moreover, if the work can be offloaded to hardware, those developers have claimed the main CPU can be relieved of 7% of the CPU utilization of QUIC.
+Today, MsQuic builds each QUIC packet by writing headers and copying application data into an MTU-sized (or larger in the case of USO) buffer, uses an encryption library (bcrypt or openssl) to encrypt the packet in place, and then posts the packet (alone or in a batch) to the kernel.
+When running MsQuic in "max throughput" mode (which parallelizes QUIC and UDP work), for bulk throughput scenarios (i.e., large file transfers), as much as 70% of a single CPU may be consumed by encryption.
+This constitutes the largest CPU bottleneck in the scenario.
 
 
 ## UDP Segmentation Offload (USO)
@@ -15,11 +16,15 @@ Developers of other QUIC implementations have claimed a 5-8% memory bandwidth re
 > **Note**
 > This section is not directly about QEO, but provides context on an existing offload with which there may be interactions.
 
-Today, MsQuic uses USO on Windows to send a batch of UDP datagrams in a single syscall. It first calls `getsockopt` with option `UDP_SEND_MSG_SIZE` to query for support of USO, and then calls `setsockopt` with `UDP_SEND_MSG_SIZE` to tell the USO provider the MTU size to use to split a buffer into multiple datagrams. Once the MTU has been set, QUIC calls `WSASendMsg` with a buffer (or a chain of buffers according to `WSASendMsg` gather semantics) containing multiple datagrams. The kernel creates a large UDP datagram from this buffer and posts it to the NDIS miniport, which breaks down the large datagram into a set of MTU-sized datagrams.
+Today, MsQuic uses USO on Windows to send a batch of UDP datagrams in a single syscall
+It first calls `getsockopt` with option `UDP_SEND_MSG_SIZE` to query for support of USO, and then calls `setsockopt` with `UDP_SEND_MSG_SIZE` to tell the USO provider the MTU size to use to split a buffer into multiple datagrams.
+Once the MTU has been set, QUIC calls `WSASendMsg` with a buffer (or a chain of buffers according to `WSASendMsg` gather semantics) containing multiple datagrams.
+The kernel creates a large UDP datagram from this buffer and posts it to the NDIS miniport, which breaks down the large datagram into a set of MTU-sized datagrams.
 
 QEO is orthogonal to USO and usable either with or without it: if USO is enabled, then the app can post multiple datagrams in a single send call; and if QEO is enabled, the datagram[s] are posted unencrypted.
 
-Windows documentation can be found [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/network/udp-segmentation-offload-uso-). MsQuic also uses the equivalent Linux API ([GSO](https://www.kernel.org/doc/html/latest/networking/segmentation-offloads.html#generic-segmentation-offload)).
+Windows documentation can be found [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/network/udp-segmentation-offload-uso-).
+MsQuic also uses the equivalent Linux API ([GSO](https://www.kernel.org/doc/html/latest/networking/segmentation-offloads.html#generic-segmentation-offload)).
 
 
 ## Linux API
@@ -27,7 +32,9 @@ Windows documentation can be found [here](https://learn.microsoft.com/en-us/wind
 > **Note**
 > The Linux interface is also a work in progress. The following indicates the current state of the proposal.
 
-Linux developers are working on a send-side kernel/hardware encryption offload. See [here](https://lore.kernel.org/all/97789971-7cf5-ede1-11e2-df6494e75e44@gmail.com/). The focus on sender side is justified by the claim that server-side networking is typically send-dominant.
+Linux developers are working on a send-side kernel/hardware encryption offload.
+See [here](https://lore.kernel.org/all/97789971-7cf5-ede1-11e2-df6494e75e44@gmail.com/).
+The focus on sender side is justified by the claim that server-side networking is typically send-dominant.
 
 The general API in Linux is:
 
@@ -49,7 +56,8 @@ The proposed Winsock API for QEO is as follows.
 
 ## Checking for QEO Capability
 
-An app first checks for QEO support by querying the `SO_QEO_SUPPORT` socket option. The option value is a `QEO_SUPPORT` structure describing the supported algorithms:
+An app first checks for QEO support by querying the `SO_QEO_SUPPORT` socket option.
+The option value is a `QEO_SUPPORT` structure describing the supported algorithms:
 
 ```C
 typedef struct {
@@ -100,11 +108,13 @@ This array indicates the set of support QUIC version numbers that are supported.
 
 ### Return value
 
-If no error occurs, `getsockopt` returns zero. If QEO is not supported by the operating system, then the `getsockopt` call will fail with status `WSAEINVAL`. This should be treated the same as the case where no cipher types are supported (i.e. the app should encrypt its own QUIC packets).
+If no error occurs, `getsockopt` returns zero.
+If QEO is not supported by the operating system, then the `getsockopt` call will fail with status `WSAEINVAL`.
+This should be treated the same as the case where no cipher types are supported (i.e. the app should encrypt its own QUIC packets).
 
 ### Remarks
 
-Since this structure is an indication of what (possibly partial) support level exists from the offload, some of the bits likely will not be set. But there are certain sets of bits where at least one of them must be set.
+Since this structure is an indication of what (possibly partial) support level exists from the offload, some of the bits likely will not be set. But some must be set:
 
 - Either `Receive` or `Transmit` must be set.
 - Either `Aes128Gcm`, `Aes256Gcm`, `ChaCha20Poly1305`, or `Aes128Ccm` must be set.
@@ -150,7 +160,9 @@ typedef struct {
 
 ## Sending Packets
 
-The app then calls `WSASendMsg` with an unencrypted QUIC packet (or, if USO is also being used, a set of unencrypted QUIC packets). The packet[s] must be smaller than the current MTU by the size of the authentication tag, which is currently 16 bytes for all supported ciphers. This leaves space for the tag to be added to the packet during encryption.
+The app then calls `WSASendMsg` with an unencrypted QUIC packet (or, if USO is also being used, a set of unencrypted QUIC packets).
+The packet[s] must be smaller than the current MTU by the size of the authentication tag, which is currently 16 bytes for all supported ciphers.
+This leaves space for the tag to be added to the packet during encryption.
 
 The app passes ancillary data to `WSASendMsg` in the form of `QEO_ANCILLARY_DATA`:
 
@@ -161,7 +173,8 @@ typedef struct {
 } QEO_ANCILLARY_DATA;
 ```
 
-`NextPacketNumber` is the uncompressed QUIC packet number of the packet (or of the first packet in the batch). This is passed down because the uncompressed packet number is an input for encryption and because the offload provider cannot read the packet number from the packet buffer without dealing with packet number compression.
+`NextPacketNumber` is the uncompressed QUIC packet number of the packet (or of the first packet in the batch).
+This is passed down because the uncompressed packet number is an input for encryption and because the offload provider cannot read the packet number from the packet buffer without dealing with packet number compression.
 
 The `ConnectionIdLength` is passed to help the offload provider read the connection ID (which is used as a lookup key for the previously-established encryption parameters) from the packet buffer.
 
@@ -175,7 +188,8 @@ This section describes necessary updates in the Windows network stack to support
 
 ## Software Fallback
 
-TCPIP will support graceful software fallback in the many cases where the hardware capability isn't fully supported. Some of these scenarios include:
+TCPIP will support graceful software fallback in the many cases where the hardware capability isn't fully supported.
+Some of these scenarios include:
 
 - Only partial feature support from the HW (e.g. supports only TX or only a particular algorithm).
 - Only partial support across all available hardware (e.g. only NIC A supports offload, but not NIC B).
@@ -183,17 +197,18 @@ TCPIP will support graceful software fallback in the many cases where the hardwa
 - Suprise removal/disable of feature support from the hardware.
 - Loopback interface support.
 
-In order to simplify the interface at the socket layer, TCPIP will support the SW fallback to hide the complexity of the scenarios above. To support SW fallback, the following will have to be added to TCPIP:
+To simplify the interface at the socket layer, TCPIP will support the SW fallback to hide the complexity of the scenarios above.
+To support SW fallback, the following will have to be added to TCPIP:
 
 - All offload state must be mirrored in TCPIP.
-  - Support capabilities can only be advertised for features that can be implemented in software. Any missing SW features (e.g. ChaCha20-Poly1305) cannot be advertised, even if the HW supports it.
-  - In addition to the offloaded connection state passed by the app, TCPIP must also track if the state has been succeessfully offloaded to the NIC.
+- Support capabilities can only be advertised for features that can be implemented in software. Any missing SW features (e.g. ChaCha20-Poly1305) cannot be advertised, even if the HW supports it.
+- In addition to the offloaded connection state passed by the app, TCPIP must also track if the state has been succeessfully offloaded to the NIC.
 - When an app offloads a connection, it should first go into the local mirror (synchronously) and then be offloaded to the NIC (likely async).
 - In the TX path, any app-offloaded connection that hasn't been successfully offloaded to the NIC must be handled by the SW fallback.
 - In the RX path, any app-offloaded connection that hasn't been successfully offloaded to the NIC must be handled by the SW fallback.
 - In the case of dynamic NIC feature enablement, TCPIP should replumb all offloaded connections.
 
-Some other points worth noting:
+Some other requirements:
 
 - When doing sofware USO combined with hardware QEO, TCPIP must not compute checksums, since the payload will change.
 - Loopback support must be handled as well.
@@ -206,7 +221,8 @@ The NDIS interface for QEO is used for communication between TCPIP (which posts 
 
 ## Configuring and Advertising QEO Capability
 
-The miniport driver advertises QEO capability during initialization with the `QuicEncryption` field of an `NDIS_OFFLOAD` structure (with `Header.Revision = NDIS_OFFLOAD_REVISION_8` and `Header.Size = NDIS_SIZEOF_NDIS_OFFLOAD_REVISION_8`), which is passed to `NdisMSetMiniportAttributes`. The `QuicEncryption` field is of type `NDIS_QUIC_ENCRYPTION_OFFLOAD`:
+The miniport driver advertises QEO capability during initialization with the `QuicEncryption` field of an `NDIS_OFFLOAD` structure (with `Header.Revision = NDIS_OFFLOAD_REVISION_8` and `Header.Size = NDIS_SIZEOF_NDIS_OFFLOAD_REVISION_8`), which is passed to `NdisMSetMiniportAttributes`.
+The `QuicEncryption` field is of type `NDIS_QUIC_ENCRYPTION_OFFLOAD`:
 
 ```C
 typedef struct {
@@ -221,9 +237,12 @@ typedef struct {
  } NDIS_QUIC_ENCRYPTION_OFFLOAD;
 ```
 
-QEO can be enabled or disabled using `OID_TCP_OFFLOAD_PARAMETERS` with the `QuicEncryption` field of the `NDIS_OFFLOAD_PARAMETERS` struct. The `QuicEncryption` field is of type `NDIS_QUIC_ENCRYPTION_OFFLOAD`, described above. After the miniport driver handles the OID, it must send an `NDIS_STATUS_TASK_OFFLOAD_CURRENT_CONFIG` status indication with the updated configuration.
+QEO can be enabled or disabled using `OID_TCP_OFFLOAD_PARAMETERS` with the `QuicEncryption` field of the `NDIS_OFFLOAD_PARAMETERS` struct.
+The `QuicEncryption` field is of type `NDIS_QUIC_ENCRYPTION_OFFLOAD`, described above.
+After the miniport driver handles the OID, it must send an `NDIS_STATUS_TASK_OFFLOAD_CURRENT_CONFIG` status indication with the updated configuration.
 
-The current QEO configuration can be queried with `OID_TCP_OFFLOAD_CURRENT_CONFIG`. NDIS handles this OID and does not pass it down to the miniport driver.
+The current QEO configuration can be queried with `OID_TCP_OFFLOAD_CURRENT_CONFIG`.
+NDIS handles this OID and does not pass it down to the miniport driver.
 
 > **TODO -** what happens to existing plumbed connections when the config changes? (e.g. what if a connection was using a cipher type and that cipher type has been removed?)
 
@@ -234,7 +253,8 @@ The current QEO configuration can be queried with `OID_TCP_OFFLOAD_CURRENT_CONFI
 
 > **TODO -** specify how many connections can be offloaded?
 
-Before the NDIS protocol driver posts packets for QEO, it first establishes encryption parameters for the associated QUIC connection by issuing `OID_QUIC_CONNECTION_ENCRYPTION`. The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains a pointer to an `NDIS_QUIC_CONNECTION`:
+Before the NDIS protocol driver posts packets for QEO, it first establishes encryption parameters for the associated QUIC connection by issuing `OID_QUIC_CONNECTION_ENCRYPTION`.
+The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains a pointer to an `NDIS_QUIC_CONNECTION`:
 
 ```C
 typedef enum {
@@ -262,7 +282,8 @@ typedef struct _NDIS_QUIC_CONNECTION {
 } NDIS_QUIC_CONNECTION;
 ```
 
-The protocol driver later deletes the state for the connection with `OID_QUIC_CONNECTION_ENCRYPTION`. The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID also contains a pointer to an `NDIS_QUIC_CONNECTION`, but only the `Port`, `Address Family`, `Address`, `ConnectionIdLength`, and `ConnectionId` fields are used.
+The protocol driver later deletes the state for the connection with `OID_QUIC_CONNECTION_ENCRYPTION`.
+The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID also contains a pointer to an `NDIS_QUIC_CONNECTION`, but only the `Port`, `Address Family`, `Address`, `ConnectionIdLength`, and `ConnectionId` fields are used.
 
 
 ## Sending Packets
@@ -278,7 +299,8 @@ typedef struct _NDIS_QUIC_ENCRYPTION_NET_BUFFER_LIST_INFO {
 } NDIS_QUIC_ENCRYPTION_NET_BUFFER_LIST_INFO;
 ```
 
-NOTE: Normally the encryption parameters for the associated connection will have been established with `OID_QUIC_CONNECTION_ENCRYPTION` for every QEO packet that is posted, but this is not guaranteed. If a QEO packet is posted and no matching encryption parameters are established, the `NET_BUFFER_LIST` must be immediately completed by the miniport without transmitting the packet. (**TODO**: with what status code?)
+NOTE: Normally the encryption parameters for the associated connection will have been established with `OID_QUIC_CONNECTION_ENCRYPTION` for every QEO packet that is posted, but this is not guaranteed.
+If a QEO packet is posted and no matching encryption parameters are established, the `NET_BUFFER_LIST` must be immediately completed by the miniport without transmitting the packet. (**TODO**: with what status code?)
 
 > **TODO -** Miniport will have to compute checksums
 
