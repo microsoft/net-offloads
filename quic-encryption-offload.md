@@ -189,7 +189,7 @@ In order to simplify the interface at the socket layer, TCPIP will support the S
   - Support capabilities can only be advertised for features that can be implemented in software. Any missing SW features (e.g. ChaCha20-Poly1305) cannot be advertised, even if the HW supports it.
   - In addition to the offloaded connection state passed by the app, TCPIP must also track if the state has been succeessfully offloaded to the NIC.
 - When an app offloads a connection, it should first go into the local mirror (synchronously) and then be offloaded to the NIC (likely async).
-- In the TX path, any app-offloaded connection that hasn't been successfully offloaded to the NIC must be handled by the SW fallback
+- In the TX path, any app-offloaded connection that hasn't been successfully offloaded to the NIC must be handled by the SW fallback.
 - In the RX path, any app-offloaded connection that hasn't been successfully offloaded to the NIC must be handled by the SW fallback
 - In the case of dynamic NIC feature enablement, TCPIP should replumb all offloaded connections.
 
