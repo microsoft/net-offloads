@@ -247,7 +247,7 @@ NDIS handles this OID and does not pass it down to the miniport driver.
 
 ## Establishing Encryption Parameters for a Connection
 
-> **TODO -** what type of OID to use for `OID_QUIC_CONNECTION_ENCRYPTION`? Some OIDs have high latency. If no type of OID is fast enough, perhaps instead of OID to plumb a connection, use a special OOB in first packet.
+> **TODO -** what type of OID to use for `OID_QUIC_CONNECTION_ENCRYPTION`? Some OIDs have high latency. If no type of OID is fast enough, perhaps instead of OID to plumb a connection, use a special OOB in first packet. Overview of the three available OID types (normal, direct, and synchronous): https://learn.microsoft.com/en-us/windows-hardware/drivers/network/synchronous-oid-request-interface-in-ndis-6-80
 
 
 Before the NDIS protocol driver posts packets for QEO, it first establishes encryption parameters for the associated QUIC connection by issuing `OID_QUIC_CONNECTION_ENCRYPTION`.
