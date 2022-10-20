@@ -312,3 +312,21 @@ If a QEO packet is posted and no matching encryption parameters are established,
 
 > **TODO** everything else
  
+ # Appendix: Explaining QUIC Encryption
+ 
+While the full details can be found [here](https://www.rfc-editor.org/rfc/rfc9001#name-packet-protection), the following section outlines how the offloaded connection key material about should be used to encrypt or decrypt QUIC short header packets.
+The `PayloadKey` and `HeaderKey` fields contain the already expanded keys for the payload and header protection.
+They are simply used with the corresponding cipher algorithm to create the keys.
+
+For packet encryption, the steps are detailed [here](https://www.rfc-editor.org/rfc/rfc9001#name-aead-usage).
+Partial section is quoted below.
+
+> The nonce, N, is formed by combining the packet protection IV with the packet number. The 62 bits of the reconstructed QUIC packet number in network byte order are left-padded with zeros to the size of the IV. The exclusive OR of the padded packet number and the IV forms the AEAD nonce.
+>
+> The associated data, A, for the AEAD is the contents of the QUIC header, starting from the first byte of either the short or long header, up to and including the unprotected packet number.
+>
+> The input plaintext, P, for the AEAD is the payload of the QUIC packet, as described in [QUIC-TRANSPORT](https://www.rfc-editor.org/rfc/rfc9000).
+>
+> The output ciphertext, C, of the AEAD is transmitted in place of P.
+
+For header encryption, the steps are detailed [here](https://www.rfc-editor.org/rfc/rfc9001#name-header-protection-applicati).
