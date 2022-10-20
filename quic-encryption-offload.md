@@ -186,8 +186,6 @@ The `ConnectionIdLength` is passed to help the offload provider read the connect
 
 This section describes necessary updates in the Windows network stack to support QEO.
 
-## Software Fallback
-
 TCPIP will support graceful software fallback in the many cases where the hardware capability isn't fully supported.
 Some of these scenarios include:
 
@@ -251,7 +249,6 @@ NDIS handles this OID and does not pass it down to the miniport driver.
 
 > **TODO -** what type of OID to use for `OID_QUIC_CONNECTION_ENCRYPTION`? Some OIDs have high latency. If no type of OID is fast enough, perhaps instead of OID to plumb a connection, use a special OOB in first packet.
 
-> **TODO -** specify how many connections can be offloaded?
 
 Before the NDIS protocol driver posts packets for QEO, it first establishes encryption parameters for the associated QUIC connection by issuing `OID_QUIC_CONNECTION_ENCRYPTION`.
 The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains a pointer to an `NDIS_QUIC_CONNECTION`:
