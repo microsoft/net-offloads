@@ -173,11 +173,30 @@ The `ConnectionIdLength` is passed to help the offload provider read the connect
 
 This section describes necessary updates in the Windows network stack to support QEO.
 
-> **TODO -** When doing S/W USO and H/W QEO, don’t do xsum in UDP.
+## Software Fallback
 
-> **TODO -** S/W encryption must happen for loopback packets.
+TCPIP will support graceful software fallback in the many cases where the hardware capability isn't fully supported. Some of these scenarios include:
 
-> **TODO -** Need to maintain mirror table of plumbed connections in TCPIP for when we switch to and from S/W offload.
+- Only partial feature support from the HW (e.g. supports only TX or only a particular algorithm).
+- Only partial support across all available hardware (e.g. only NIC A supports offload, but not NIC B).
+- Limited memory available for hardware offload (e.g. NIC only supports N offloaded connected, but app has N + M).
+- Suprise removal/disable of feature support from the hardware.
+- Loopback interface support.
+
+In order to simplify the interface at the socket layer, TCPIP will support the SW fallback to hide the complexity of the scenarios above. To support SW fallback, the following will have to be added to TCPIP:
+
+- All offload state must be mirrored in TCPIP.
+  - Support capabilities can only be advertised for features that can be implemented in software. Any missing SW features (e.g. ChaCha20-Poly1305) cannot be advertised, even if the HW supports it.
+  - In addition to the offloaded connection state passed by the app, TCPIP must also track if the state has been succeessfully offloaded to the NIC.
+- When an app offloads a connection, it should first go into the local mirror (synchronously) and then be offloaded to the NIC (likely async).
+- In the TX path, for any app-offloaded connection that hasn't been successfully offloaded to the NIC must be handled by the SW fallback
+- In the RX path, for any app-offloaded connection that hasn't been successfully offloaded to the NIC must be handled by the SW fallback
+- In the case of dynamic NIC feature enablement, TCPIP should replumb all offloaded connections.
+
+Some other points worth noting:
+
+- When doing sofware USO combined with hardware QEO, TCPIP must not compute checksums, since the payload will change.
+- Loopback support must be handled as well.
 
 
 # NDIS API
