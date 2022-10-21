@@ -182,8 +182,8 @@ The `ConnectionIdLength` is passed to help the offload provider read the connect
 
 > **TODO -** Expand the bullets below with full details.
 
-- Set new socket option to enable RX offload: `SO_QEO_RX_ENABLED`
-- Allocate space for RX ancillary data struct: `QEO_RX_ANCILLARY_DATA`
+- The app sets the new `SO_QEO_CONNECTION` socket option to offload RX of a connection.
+- The app allocates space for RX ancillary data struct: `QEO_RX_ANCILLARY_DATA`
   - Has an enum of the following possible states: `{ QEO_RX_ENCRYPTED, QEO_RX_DECRYPTED, QEO_RX_DECRYPT_FAILED }`
   - When the state is `QEO_RX_ENCRYPTED` it means the received QUIC packet is still encrypted
   - When the stats is `QEO_RX_DECRYPTED` it means the received QUIC packet has been successfully decrypted and the trailing 16-byte tag has been elided
