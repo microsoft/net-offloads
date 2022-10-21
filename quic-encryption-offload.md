@@ -303,8 +303,6 @@ If a QEO packet is posted and no matching encryption parameters are established,
 
 > **TODO -** Explicitly mention that usage of QEO with USO must be supported.
 
-> **TODO -** What about nonsequential packets? If we’re just passing a `NextPacketNumber` then how will that work?
-
 
 ## Receiving Packets
 
