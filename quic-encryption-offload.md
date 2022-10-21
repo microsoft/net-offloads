@@ -312,3 +312,28 @@ If a QEO packet is posted and no matching encryption parameters are established,
 
 > **TODO** everything else
  
+ # Appendix: Explaining QUIC Encryption
+ 
+The following section outlines how the offloaded connection keys should be used to encrypt or decrypt QUIC short header packets.
+The full details can be found in [RFC 9001](https://www.rfc-editor.org/rfc/rfc9001#name-packet-protection).
+The `PayloadKey` and `HeaderKey` fields are the keys used directly in the AEAD functions to encrypt/decrypt the payload and header.
+They are not the traffic secrets derived by the TLS handshake.
+
+For packet encryption, the steps are detailed [here](https://www.rfc-editor.org/rfc/rfc9001#name-aead-usage), with key sections quoted below.
+
+> The nonce, N, is formed by combining the packet protection IV with the packet number. The 62 bits of the reconstructed QUIC packet number in network byte order are left-padded with zeros to the size of the IV. The exclusive OR of the padded packet number and the IV forms the AEAD nonce.
+>
+> The associated data, A, for the AEAD is the contents of the QUIC header, starting from the first byte of either the short or long header, up to and including the unprotected packet number.
+>
+> The input plaintext, P, for the AEAD is the payload of the QUIC packet, as described in [QUIC-TRANSPORT](https://www.rfc-editor.org/rfc/rfc9000).
+>
+> The output ciphertext, C, of the AEAD is transmitted in place of P.
+
+After packet encryption, header encryption is performed.
+The steps are detailed [here](https://www.rfc-editor.org/rfc/rfc9001#name-header-protection-applicati), with key sections quoted below.
+
+> Header protection is applied after packet protection is applied (see [Section 5.3](https://www.rfc-editor.org/rfc/rfc9001#aead)). The ciphertext of the packet is sampled and used as input to an encryption algorithm. The algorithm used depends on the negotiated AEAD.
+>
+> The output of this algorithm is a 5-byte mask that is applied to the protected header fields using exclusive OR. The least significant bits of the first byte of the packet are masked by the least significant bits of the first mask byte, and the packet number is masked with the remaining bytes. Any unused bytes of mask that might result from a shorter packet number encoding are unused.
+
+Decryption is the reverse process: the header and then the payload is decrypted.
