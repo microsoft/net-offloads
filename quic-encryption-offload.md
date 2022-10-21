@@ -315,7 +315,8 @@ If a QEO packet is posted and no matching encryption parameters are established,
  # Appendix: Explaining QUIC Encryption
  
 While the full details can be found [here](https://www.rfc-editor.org/rfc/rfc9001#name-packet-protection), the following section outlines how the offloaded connection key material should be used to encrypt or decrypt QUIC short header packets.
-The `PayloadKey` and `HeaderKey` fields are the keys used in the AEAD functions to encrypt/decrypt the payload and header.
+The `PayloadKey` and `HeaderKey` fields are the keys used directly in the AEAD functions to encrypt/decrypt the payload and header.
+They are not the traffic secrets derived by the TLS handshake.
 
 For packet encryption, the steps are detailed [here](https://www.rfc-editor.org/rfc/rfc9001#name-aead-usage).
 Partial section is quoted below.
