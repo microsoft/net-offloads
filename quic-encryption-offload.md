@@ -336,4 +336,4 @@ The steps are detailed [here](https://www.rfc-editor.org/rfc/rfc9001#name-header
 >
 > The output of this algorithm is a 5-byte mask that is applied to the protected header fields using exclusive OR. The least significant bits of the first byte of the packet are masked by the least significant bits of the first mask byte, and the packet number is masked with the remaining bytes. Any unused bytes of mask that might result from a shorter packet number encoding are unused.
 
-Decryption is the reverse process; decrypting the header and then the payload.
+Decryption is the reverse process: the header and then the payload is decrypted.
