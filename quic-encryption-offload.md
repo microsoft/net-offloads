@@ -330,7 +330,7 @@ Partial section is quoted below.
 >
 > The output ciphertext, C, of the AEAD is transmitted in place of P.
 
-After packet encryption, header encryption is performance.
+After packet encryption, header encryption is performed.
 The steps are detailed [here](https://www.rfc-editor.org/rfc/rfc9001#name-header-protection-applicati), with sections quoted below.
 
 > Header protection is applied after packet protection is applied (see [Section 5.3](https://www.rfc-editor.org/rfc/rfc9001#aead)). The ciphertext of the packet is sampled and used as input to an encryption algorithm. The algorithm used depends on the negotiated AEAD.
