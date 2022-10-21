@@ -107,7 +107,7 @@ This should be treated the same as the case where no cipher types are supported 
 When passing the buffer into `getsockopt` for the output `QEO_SUPPORT`, it is recommended to allocate a space for several `QuicVersion` to be returned; at least 4 to allow for future expansion.
 
 Not all bits are required to be set, and some very likely will not be set, depending on the capabilities of the system.
-But if the `getsockop` call does succeed, some must be set:
+But if the `getsockopt` call does succeed, some must be set:
 
 - At least one of `Aes128Gcm`, `Aes256Gcm`, `ChaCha20Poly1305`, or `Aes128Ccm` must be set.
 - `QuicVersionCount` must be at least one.
