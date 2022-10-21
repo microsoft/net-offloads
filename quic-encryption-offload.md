@@ -161,16 +161,16 @@ typedef struct {
 ## Sending Packets
 
 The app then calls `WSASendMsg` with an unencrypted QUIC packet (or, if USO is also being used, a set of unencrypted QUIC packets).
-The packet[s] must be smaller than the current MTU by the size of the authentication tag, which is currently 16 bytes for all supported ciphers.
+The packet(s) must be smaller than the current MTU by the size of the authentication tag, which is currently 16 bytes for all supported ciphers.
 This leaves space for the tag to be added to the packet during encryption.
 
-The app passes ancillary data to `WSASendMsg` in the form of `QEO_ANCILLARY_DATA`:
+The app passes ancillary data to `WSASendMsg` in the form of `QEO_TX_ANCILLARY_DATA`:
 
 ```C
 typedef struct { 
     uint64_t NextPacketNumber; 
     uint8_t ConnectionIdLength;  
-} QEO_ANCILLARY_DATA;
+} QEO_TX_ANCILLARY_DATA;
 ```
 
 `NextPacketNumber` is the uncompressed QUIC packet number of the packet (or of the first packet in the batch).
@@ -180,7 +180,16 @@ The `ConnectionIdLength` is passed to help the offload provider read the connect
 
 ## Receiving Packets
 
-> **TODO**
+> **TODO -** Expand the bullets below with full details.
+
+- Set new socket option to enable RX offload: `SO_QEO_RX_ENABLED`
+- Allocate space for RX ancillary data struct: `QEO_RX_ANCILLARY_DATA`
+  - Has an enum of the following possible states: `{ QEO_RX_ENCRYPTED, QEO_RX_DECRYPTED, QEO_RX_DECRYPT_FAILED }`
+  - When the state is `QEO_RX_ENCRYPTED` it means the received QUIC packet is still encrypted
+  - When the stats is `QEO_RX_DECRYPTED` it means the received QUIC packet has been successfully decrypted and the trailing 16-byte tag has been elided
+  - When the state is `QEO_RX_DECRYPT_FAILED` it means the received QUIC packet failed to be decrypted, even though it was offloaded
+
+> **TODO - ** Add text on how RX and URO work? Should the QUIC CID be required to be the same for all URO QUIC packets (usually they always will anyways).
 
 # TCPIP Updates for QEO
 
