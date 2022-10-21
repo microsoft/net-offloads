@@ -57,12 +57,10 @@ The proposed Winsock API for QEO is as follows.
 ## Checking for QEO Capability
 
 An app first checks for QEO support by querying the `SO_QEO_SUPPORT` socket option.
-The option value is a `QEO_SUPPORT` structure describing the supported algorithms:
+The option value is a `QEO_SUPPORT` structure describing the supported capabilities:
 
 ```C
-typedef struct {
-    uint8_t Receive : 1;
-    uint8_t Transmit : 1;
+typedef struct _QEO_SUPPORT {
     uint8_t Aes128Gcm : 1;
     uint8_t Aes256Gcm : 1;
     uint8_t ChaCha20Poly1305 : 1;
@@ -73,14 +71,6 @@ typedef struct {
 ```
 
 ### Parameters
-
-#### Receive
-
-This bit indicates the decryption offload for the receive path is supported.
-
-#### Transmit
-
-This bit indicates the encryption offload for the transmit path is supported.
 
 #### Aes128Gcm
 
@@ -114,13 +104,15 @@ This should be treated the same as the case where no cipher types are supported 
 
 ### Remarks
 
-Since this structure is an indication of what (possibly partial) support level exists from the offload, some of the bits likely will not be set. But some must be set:
+When passing the buffer into `getsockopt` for the output `QEO_SUPPORT`, it is recommended to allocate a space for several `QuicVersion` to be returned; at least 4 to allow for future expansion.
 
-- Either `Receive` or `Transmit` must be set.
-- Either `Aes128Gcm`, `Aes256Gcm`, `ChaCha20Poly1305`, or `Aes128Ccm` must be set.
+Not all bits are required to be set, and some very likely will not be set, depending on the capabilities of the system.
+But if the `getsockop` call does succeed, some must be set:
+
+- At least one of `Aes128Gcm`, `Aes256Gcm`, `ChaCha20Poly1305`, or `Aes128Ccm` must be set.
 - `QuicVersionCount` must be at least one.
 
-> **TODO -** The "support" only makes sense in the context of a particular interface. If the socket is bound first then it's clear which interface we want to query; but what about unbound sockets?
+Note that the capabilities returned by this do not necessarily map to any particular network interface support since the OS provides software fallback.
 
 
 ## Establishing Encryption Parameters for a Connection
@@ -255,10 +247,10 @@ The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains a 
 
 ```C
 typedef enum {
-    AesGcm128,
-    AesGcm256,
+    Aes128Gcm,
+    Aes256Gcm,
     ChaCha20Poly1305,
-    AesCcm128
+    Aes128Ccm
 } NDIS_QUIC_CIPHER_TYPE;
 
 typedef struct _NDIS_QUIC_CONNECTION {
