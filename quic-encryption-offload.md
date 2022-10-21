@@ -188,8 +188,8 @@ The `ConnectionIdLength` is passed to help the offload provider read the connect
   - When the state is `QEO_RX_ENCRYPTED` it means the received QUIC packet is still encrypted
   - When the stats is `QEO_RX_DECRYPTED` it means the received QUIC packet has been successfully decrypted and the trailing 16-byte tag has been elided
   - When the state is `QEO_RX_DECRYPT_FAILED` it means the received QUIC packet failed to be decrypted, even though it was offloaded
+- When considering how this interacts with URO, the only requirement is that ancillary data correctly applies to all URO packets
 
-> **TODO - ** Add text on how RX and URO work? Should the QUIC CID be required to be the same for all URO QUIC packets (usually they always will anyways).
 
 # TCPIP Updates for QEO
 
