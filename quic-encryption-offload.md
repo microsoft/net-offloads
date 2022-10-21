@@ -67,8 +67,6 @@ typedef struct {
     uint8_t Aes256Gcm : 1;
     uint8_t ChaCha20Poly1305 : 1;
     uint8_t Aes128Ccm : 1;
-    uint32_t QuicVersionCount;
-    uint32_t QuicVersions[1]; // Variable length
 } QEO_SUPPORT;
 ```
 
@@ -98,14 +96,6 @@ This bit indicates the AEAD_CHACHA20_POLY1305 cryptographic algorithm is support
 
 This bit indicates the AEAD_AES_128_CCM cryptographic algorithm is supported.
 
-#### QuicVersionCount
-
-This field indicates the number of items in the `QuicVersions` array.
-
-#### QuicVersions
-
-This array indicates the set of support QUIC version numbers that are supported.
-
 ### Return value
 
 If no error occurs, `getsockopt` returns zero.
@@ -118,7 +108,6 @@ Since this structure is an indication of what (possibly partial) support level e
 
 - Either `Receive` or `Transmit` must be set.
 - Either `Aes128Gcm`, `Aes256Gcm`, `ChaCha20Poly1305`, or `Aes128Ccm` must be set.
-- `QuicVersionCount` must be at least one.
 
 > **TODO -** The "support" only makes sense in the context of a particular interface. If the socket is bound first then it's clear which interface we want to query; but what about unbound sockets?
 
@@ -138,7 +127,6 @@ typedef enum {
 typedef struct {
     BOOLEAN IsAdd;
     BOOLEAN IsTransmit;
-    uint32_t QuicVersion;
     NDIS_QUIC_CIPHER_TYPE CipherType;
     uint8_t PayloadKeyLength;
     uint8_t PayloadKey[32];
@@ -239,8 +227,6 @@ typedef struct {
     uint8_t Aes256Gcm : 1;
     uint8_t ChaCha20Poly1305 : 1;
     uint8_t Aes128Ccm : 1;
-    uint32_t QuicVersionCount;
-    uint32_t QuicVersions[1]; // Variable length
  } NDIS_QUIC_ENCRYPTION_OFFLOAD;
 ```
 
@@ -273,7 +259,6 @@ typedef enum {
 typedef struct _NDIS_QUIC_CONNECTION {
     BOOLEAN IsAdd;
     BOOLEAN IsTransmit;
-    uint32_t QuicVersion;
     NDIS_QUIC_CIPHER_TYPE CipherType;
     uint8_t PayloadKeyLength;
     uint8_t PayloadKey[32];
