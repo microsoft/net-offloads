@@ -65,8 +65,6 @@ typedef struct _QEO_SUPPORT {
     uint8_t Aes256Gcm : 1;
     uint8_t ChaCha20Poly1305 : 1;
     uint8_t Aes128Ccm : 1;
-    uint32_t QuicVersionCount;
-    uint32_t QuicVersions[1]; // Variable length
 } QEO_SUPPORT;
 ```
 
@@ -88,14 +86,6 @@ This bit indicates the AEAD_CHACHA20_POLY1305 cryptographic algorithm is support
 
 This bit indicates the AEAD_AES_128_CCM cryptographic algorithm is supported.
 
-#### QuicVersionCount
-
-This field indicates the number of items in the `QuicVersions` array.
-
-#### QuicVersions
-
-This array indicates the set of support QUIC version numbers that are supported.
-
 ### Return value
 
 If no error occurs, `getsockopt` returns zero.
@@ -110,7 +100,6 @@ Not all bits are required to be set, and some very likely will not be set, depen
 But if the `getsockopt` call does succeed, some must be set:
 
 - At least one of `Aes128Gcm`, `Aes256Gcm`, `ChaCha20Poly1305`, or `Aes128Ccm` must be set.
-- `QuicVersionCount` must be at least one.
 
 Note that the capabilities returned by this do not necessarily map to any particular network interface support since the OS provides software fallback.
 
@@ -130,7 +119,6 @@ typedef enum {
 typedef struct {
     BOOLEAN IsAdd;
     BOOLEAN IsTransmit;
-    uint32_t QuicVersion;
     NDIS_QUIC_CIPHER_TYPE CipherType;
     uint8_t PayloadKeyLength;
     uint8_t PayloadKey[32];
@@ -153,16 +141,16 @@ typedef struct {
 ## Sending Packets
 
 The app then calls `WSASendMsg` with an unencrypted QUIC packet (or, if USO is also being used, a set of unencrypted QUIC packets).
-The packet[s] must be smaller than the current MTU by the size of the authentication tag, which is currently 16 bytes for all supported ciphers.
+The packet(s) must be smaller than the current MTU by the size of the authentication tag, which is currently 16 bytes for all supported ciphers.
 This leaves space for the tag to be added to the packet during encryption.
 
-The app passes ancillary data to `WSASendMsg` in the form of `QEO_ANCILLARY_DATA`:
+The app passes ancillary data to `WSASendMsg` in the form of `QEO_TX_ANCILLARY_DATA`:
 
 ```C
 typedef struct { 
     uint64_t NextPacketNumber; 
     uint8_t ConnectionIdLength;  
-} QEO_ANCILLARY_DATA;
+} QEO_TX_ANCILLARY_DATA;
 ```
 
 `NextPacketNumber` is the uncompressed QUIC packet number of the packet (or of the first packet in the batch).
@@ -172,7 +160,16 @@ The `ConnectionIdLength` is passed to help the offload provider read the connect
 
 ## Receiving Packets
 
-> **TODO**
+> **TODO -** Expand the bullets below with full details.
+
+- The app sets the new `SO_QEO_CONNECTION` socket option to offload RX of a connection.
+- The app allocates space for RX ancillary data struct: `QEO_RX_ANCILLARY_DATA`
+  - Has an enum of the following possible states: `{ QEO_RX_ENCRYPTED, QEO_RX_DECRYPTED, QEO_RX_DECRYPT_FAILED }`
+  - When the state is `QEO_RX_ENCRYPTED` it means the received QUIC packet is still encrypted
+  - When the stats is `QEO_RX_DECRYPTED` it means the received QUIC packet has been successfully decrypted and the trailing 16-byte tag has been elided
+  - When the state is `QEO_RX_DECRYPT_FAILED` it means the received QUIC packet failed to be decrypted, even though it was offloaded
+- When considering how this interacts with URO, the only requirement is that ancillary data correctly applies to all URO packets
+
 
 # TCPIP Updates for QEO
 
@@ -222,8 +219,6 @@ typedef struct {
     uint8_t Aes256Gcm : 1;
     uint8_t ChaCha20Poly1305 : 1;
     uint8_t Aes128Ccm : 1;
-    uint32_t QuicVersionCount;
-    uint32_t QuicVersions[1]; // Variable length
  } NDIS_QUIC_ENCRYPTION_OFFLOAD;
 ```
 
@@ -256,7 +251,6 @@ typedef enum {
 typedef struct _NDIS_QUIC_CONNECTION {
     BOOLEAN IsAdd;
     BOOLEAN IsTransmit;
-    uint32_t QuicVersion;
     NDIS_QUIC_CIPHER_TYPE CipherType;
     uint8_t PayloadKeyLength;
     uint8_t PayloadKey[32];
@@ -295,8 +289,6 @@ If a QEO packet is posted and no matching encryption parameters are established,
 
 > **TODO -** Explicitly mention that usage of QEO with USO must be supported.
 
-> **TODO -** What about nonsequential packets? If we’re just passing a `NextPacketNumber` then how will that work?
-
 
 ## Receiving Packets
 
@@ -304,3 +296,28 @@ If a QEO packet is posted and no matching encryption parameters are established,
 
 > **TODO** everything else
  
+ # Appendix: Explaining QUIC Encryption
+ 
+The following section outlines how the offloaded connection keys should be used to encrypt or decrypt QUIC short header packets.
+The full details can be found in [RFC 9001](https://www.rfc-editor.org/rfc/rfc9001#name-packet-protection).
+The `PayloadKey` and `HeaderKey` fields are the keys used directly in the AEAD functions to encrypt/decrypt the payload and header.
+They are not the traffic secrets derived by the TLS handshake.
+
+For packet encryption, the steps are detailed [here](https://www.rfc-editor.org/rfc/rfc9001#name-aead-usage), with key sections quoted below.
+
+> The nonce, N, is formed by combining the packet protection IV with the packet number. The 62 bits of the reconstructed QUIC packet number in network byte order are left-padded with zeros to the size of the IV. The exclusive OR of the padded packet number and the IV forms the AEAD nonce.
+>
+> The associated data, A, for the AEAD is the contents of the QUIC header, starting from the first byte of either the short or long header, up to and including the unprotected packet number.
+>
+> The input plaintext, P, for the AEAD is the payload of the QUIC packet, as described in [QUIC-TRANSPORT](https://www.rfc-editor.org/rfc/rfc9000).
+>
+> The output ciphertext, C, of the AEAD is transmitted in place of P.
+
+After packet encryption, header encryption is performed.
+The steps are detailed [here](https://www.rfc-editor.org/rfc/rfc9001#name-header-protection-applicati), with key sections quoted below.
+
+> Header protection is applied after packet protection is applied (see [Section 5.3](https://www.rfc-editor.org/rfc/rfc9001#aead)). The ciphertext of the packet is sampled and used as input to an encryption algorithm. The algorithm used depends on the negotiated AEAD.
+>
+> The output of this algorithm is a 5-byte mask that is applied to the protected header fields using exclusive OR. The least significant bits of the first byte of the packet are masked by the least significant bits of the first mask byte, and the packet number is masked with the remaining bytes. Any unused bytes of mask that might result from a shorter packet number encoding are unused.
+
+Decryption is the reverse process: the header and then the payload is decrypted.
