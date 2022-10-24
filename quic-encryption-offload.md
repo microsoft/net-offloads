@@ -237,8 +237,6 @@ The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID also contai
 
 ## Sending Packets
 
-> **TODO -** packet coalescing (multiple QUIC packets per datagram)??
-
 The NDIS protocol driver posts packets for QEO with OOB data (which can be queried using the `NET_BUFFER_LIST_INFO` macro with an `_Id` of `QuicEncryptionOffloadInfo`) with the following format:
 
 ```C
