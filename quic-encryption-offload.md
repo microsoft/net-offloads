@@ -69,23 +69,12 @@ typedef enum _QEO_SUPPORT_FLAGS {
 } QEO_SUPPORT_FLAGS;
 ```
 
-### Values
-
-#### QEO_SUPPORT_FLAG_AEAD_AES_128_GCM
-
-This bit indicates the AEAD_AES_128_GCM cryptographic algorithm is supported.
-
-#### QEO_SUPPORT_FLAG_AEAD_AES_256_GCM
-
-This bit indicates the AEAD_AES_256_GCM cryptographic algorithm is supported.
-
-#### QEO_SUPPORT_FLAG_AEAD_CHACHA20_POLY1305
-
-This bit indicates the AEAD_CHACHA20_POLY1305 cryptographic algorithm is supported.
-
-#### QEO_SUPPORT_FLAG_AEAD_AES_128_CCM
-
-This bit indicates the AEAD_AES_128_CCM cryptographic algorithm is supported.
+Value | Meaning
+--- | ---
+**QEO_SUPPORT_FLAG_AEAD_AES_128_GCM**<br> | The AEAD_AES_128_GCM cryptographic algorithm is supported.
+**QEO_SUPPORT_FLAG_AEAD_AES_256_GCM**<br> | The AEAD_AES_256_GCM cryptographic algorithm is supported.
+**QEO_SUPPORT_FLAG_AEAD_CHACHA20_POLY1305**<br> | The AEAD_CHACHA20_POLY1305 cryptographic algorithm is supported.
+**QEO_SUPPORT_FLAG_AEAD_AES_128_CCM**<br> | The AEAD_AES_128_CCM cryptographic algorithm is supported.
 
 ### Return value
 
