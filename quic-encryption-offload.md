@@ -11,22 +11,6 @@ When running MsQuic in "max throughput" mode (which parallelizes QUIC and UDP wo
 This constitutes the largest CPU bottleneck in the scenario.
 
 
-## UDP Segmentation Offload (USO)
-
-> **Note**
-> This section is not directly about QEO, but provides context on an existing offload with which there may be interactions.
-
-Today, MsQuic uses USO on Windows to send a batch of UDP datagrams in a single syscall
-It first calls `getsockopt` with option `UDP_SEND_MSG_SIZE` to query for support of USO, and then calls `setsockopt` with `UDP_SEND_MSG_SIZE` to tell the USO provider the MTU size to use to split a buffer into multiple datagrams.
-Once the MTU has been set, QUIC calls `WSASendMsg` with a buffer (or a chain of buffers according to `WSASendMsg` gather semantics) containing multiple datagrams.
-The kernel creates a large UDP datagram from this buffer and posts it to the NDIS miniport, which breaks down the large datagram into a set of MTU-sized datagrams.
-
-QEO is orthogonal to USO and usable either with or without it: if USO is enabled, then the app can post multiple datagrams in a single send call; and if QEO is enabled, the datagram[s] are posted unencrypted.
-
-Windows documentation can be found [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/network/udp-segmentation-offload-uso-).
-MsQuic also uses the equivalent Linux API ([GSO](https://www.kernel.org/doc/html/latest/networking/segmentation-offloads.html#generic-segmentation-offload)).
-
-
 # Winsock API
 
 The proposed Winsock API for QEO is as follows.
@@ -288,6 +272,22 @@ The steps are detailed [here](https://www.rfc-editor.org/rfc/rfc9001#name-header
 > The output of this algorithm is a 5-byte mask that is applied to the protected header fields using exclusive OR. The least significant bits of the first byte of the packet are masked by the least significant bits of the first mask byte, and the packet number is masked with the remaining bytes. Any unused bytes of mask that might result from a shorter packet number encoding are unused.
 
 Decryption is the reverse process: the header and then the payload is decrypted.
+
+
+## UDP Segmentation Offload (USO)
+
+> **Note**
+> This section is not directly about QEO, but provides context on an existing offload with which there may be interactions.
+
+Today, MsQuic uses USO on Windows to send a batch of UDP datagrams in a single syscall
+It first calls `getsockopt` with option `UDP_SEND_MSG_SIZE` to query for support of USO, and then calls `setsockopt` with `UDP_SEND_MSG_SIZE` to tell the USO provider the MTU size to use to split a buffer into multiple datagrams.
+Once the MTU has been set, QUIC calls `WSASendMsg` with a buffer (or a chain of buffers according to `WSASendMsg` gather semantics) containing multiple datagrams.
+The kernel creates a large UDP datagram from this buffer and posts it to the NDIS miniport, which breaks down the large datagram into a set of MTU-sized datagrams.
+
+QEO is orthogonal to USO and usable either with or without it: if USO is enabled, then the app can post multiple datagrams in a single send call; and if QEO is enabled, the datagram[s] are posted unencrypted.
+
+Windows documentation can be found [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/network/udp-segmentation-offload-uso-).
+MsQuic also uses the equivalent Linux API ([GSO](https://www.kernel.org/doc/html/latest/networking/segmentation-offloads.html#generic-segmentation-offload)).
 
 
 ## Linux API
