@@ -35,59 +35,38 @@ The proposed Winsock API for QEO is as follows.
 ## Checking for QEO Capability
 
 An app first checks for QEO support by querying the `SO_QEO_SUPPORT` socket option.
-The option value is a `QEO_SUPPORT` structure describing the supported algorithms:
+The option value is a `QEO_SUPPORT_FLAGS` enum with flags describing the supported capabilities:
 
 ```C
-typedef struct {
-    uint8_t Receive : 1;
-    uint8_t Transmit : 1;
-    uint8_t Aes128Gcm : 1;
-    uint8_t Aes256Gcm : 1;
-    uint8_t ChaCha20Poly1305 : 1;
-    uint8_t Aes128Ccm : 1;
-} QEO_SUPPORT;
+typedef enum _QEO_SUPPORT_FLAGS {
+    QEO_SUPPORT_FLAG_NONE                   = 0x0000,
+    QEO_SUPPORT_FLAG_AEAD_AES_128_GCM       = 0x0001,
+    QEO_SUPPORT_FLAG_AEAD_AES_256_GCM       = 0x0002,
+    QEO_SUPPORT_FLAG_AEAD_CHACHA20_POLY1305 = 0x0004,
+    QEO_SUPPORT_FLAG_AEAD_AES_128_CCM       = 0x0008,
+} QEO_SUPPORT_FLAGS;
 ```
 
-### Parameters
-
-#### Receive
-
-This bit indicates the decryption offload for the receive path is supported.
-
-#### Transmit
-
-This bit indicates the encryption offload for the transmit path is supported.
-
-#### Aes128Gcm
-
-This bit indicates the AEAD_AES_128_GCM cryptographic algorithm is supported.
-
-#### Aes256Gcm
-
-This bit indicates the AEAD_AES_256_GCM cryptographic algorithm is supported.
-
-#### ChaCha20Poly1305
-
-This bit indicates the AEAD_CHACHA20_POLY1305 cryptographic algorithm is supported.
-
-#### Aes128Ccm
-
-This bit indicates the AEAD_AES_128_CCM cryptographic algorithm is supported.
+Value | Meaning
+--- | ---
+**QEO_SUPPORT_FLAG_AEAD_AES_128_GCM**<br> | The AEAD_AES_128_GCM cryptographic algorithm is supported.
+**QEO_SUPPORT_FLAG_AEAD_AES_256_GCM**<br> | The AEAD_AES_256_GCM cryptographic algorithm is supported.
+**QEO_SUPPORT_FLAG_AEAD_CHACHA20_POLY1305**<br> | The AEAD_CHACHA20_POLY1305 cryptographic algorithm is supported.
+**QEO_SUPPORT_FLAG_AEAD_AES_128_CCM**<br> | The AEAD_AES_128_CCM cryptographic algorithm is supported.
 
 ### Return value
 
 If no error occurs, `getsockopt` returns zero.
 If QEO is not supported by the operating system, then the `getsockopt` call will fail with status `WSAEINVAL`.
-This should be treated the same as the case where no cipher types are supported (i.e. the app should encrypt its own QUIC packets).
 
 ### Remarks
 
-Since this structure is an indication of what (possibly partial) support level exists from the offload, some of the bits likely will not be set. But some must be set:
+Not all flags are required to be set, and some very likely will not be set, depending on the capabilities of the system.
+But if the `getsockopt` call does succeed, at least one non-zero flag (not `QEO_SUPPORT_FLAG_NONE`) must be set.
+Note that the capabilities returned by this do not necessarily map to any particular network interface support since the OS provides software fallback.
 
-- Either `Receive` or `Transmit` must be set.
-- Either `Aes128Gcm`, `Aes256Gcm`, `ChaCha20Poly1305`, or `Aes128Ccm` must be set.
-
-> **TODO -** The "support" only makes sense in the context of a particular interface. If the socket is bound first then it's clear which interface we want to query; but what about unbound sockets?
+Future OS versions may introduce additional support flags.
+Applications should not error on unexpected support flags being included, but instead, should silently ignore them.
 
 
 ## Establishing Encryption Parameters for a Connection
@@ -195,21 +174,22 @@ The NDIS interface for QEO is used for communication between TCPIP (which posts 
 ## Configuring and Advertising QEO Capability
 
 The miniport driver advertises QEO capability during initialization with the `QuicEncryption` field of an `NDIS_OFFLOAD` structure (with `Header.Revision = NDIS_OFFLOAD_REVISION_8` and `Header.Size = NDIS_SIZEOF_NDIS_OFFLOAD_REVISION_8`), which is passed to `NdisMSetMiniportAttributes`.
-The `QuicEncryption` field is of type `NDIS_QUIC_ENCRYPTION_OFFLOAD`:
+The `QuicEncryption` field is of type `NDIS_QEO_SUPPORT_FLAGS`:
 
 ```C
-typedef struct {
-    uint8_t Receive : 1;
-    uint8_t Transmit : 1;
-    uint8_t Aes128Gcm : 1;
-    uint8_t Aes256Gcm : 1;
-    uint8_t ChaCha20Poly1305 : 1;
-    uint8_t Aes128Ccm : 1;
- } NDIS_QUIC_ENCRYPTION_OFFLOAD;
+typedef enum _NDIS_QEO_SUPPORT_FLAGS {
+    NDIS_QEO_SUPPORT_FLAG_NONE                   = 0x0000,
+    NDIS_QEO_SUPPORT_FLAG_AEAD_AES_128_GCM       = 0x0001,
+    NDIS_QEO_SUPPORT_FLAG_AEAD_AES_256_GCM       = 0x0002,
+    NDIS_QEO_SUPPORT_FLAG_AEAD_CHACHA20_POLY1305 = 0x0004,
+    NDIS_QEO_SUPPORT_FLAG_AEAD_AES_128_CCM       = 0x0008,
+    NDIS_QEO_SUPPORT_FLAG_RECEIVE                = 0x0010,
+    NDIS_QEO_SUPPORT_FLAG_TRANSMIT               = 0x0020,
+} NDIS_QEO_SUPPORT_FLAGS;
 ```
 
 QEO can be enabled or disabled using `OID_TCP_OFFLOAD_PARAMETERS` with the `QuicEncryption` field of the `NDIS_OFFLOAD_PARAMETERS` struct.
-The `QuicEncryption` field is of type `NDIS_QUIC_ENCRYPTION_OFFLOAD`, described above.
+The `QuicEncryption` field is of type `NDIS_QEO_SUPPORT_FLAGS`, described above.
 After the miniport driver handles the OID, it must send an `NDIS_STATUS_TASK_OFFLOAD_CURRENT_CONFIG` status indication with the updated configuration.
 
 The current QEO configuration can be queried with `OID_TCP_OFFLOAD_CURRENT_CONFIG`.
@@ -228,10 +208,10 @@ The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains a 
 
 ```C
 typedef enum {
-    AesGcm128,
-    AesGcm256,
+    Aes128Gcm,
+    Aes256Gcm,
     ChaCha20Poly1305,
-    AesCcm128
+    Aes128Ccm
 } NDIS_QUIC_CIPHER_TYPE;
 
 typedef struct _NDIS_QUIC_CONNECTION {
