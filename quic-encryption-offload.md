@@ -206,8 +206,8 @@ The NDIS interface for QEO is used for communication between TCPIP (which posts 
 
 ## Configuring and Advertising QEO Capability
 
-The miniport driver advertises QEO capability during initialization with the `QuicEncryption` field of an `NDIS_QEO_SUPPORT_FLAGS` enum (with `Header.Revision = NDIS_OFFLOAD_REVISION_8` and `Header.Size = NDIS_SIZEOF_NDIS_OFFLOAD_REVISION_8`), which is passed to `NdisMSetMiniportAttributes`.
-The `QuicEncryption` field is of type `NDIS_QUIC_ENCRYPTION_OFFLOAD`:
+The miniport driver advertises QEO capability during initialization with the `QuicEncryption` field of an `NDIS_OFFLOAD` structure (with `Header.Revision = NDIS_OFFLOAD_REVISION_8` and `Header.Size = NDIS_SIZEOF_NDIS_OFFLOAD_REVISION_8`), which is passed to `NdisMSetMiniportAttributes`.
+The `QuicEncryption` field is of type `NDIS_QEO_SUPPORT_FLAGS`:
 
 ```C
 typedef enum _NDIS_QEO_SUPPORT_FLAGS {
@@ -222,7 +222,7 @@ typedef enum _NDIS_QEO_SUPPORT_FLAGS {
 ```
 
 QEO can be enabled or disabled using `OID_TCP_OFFLOAD_PARAMETERS` with the `QuicEncryption` field of the `NDIS_OFFLOAD_PARAMETERS` struct.
-The `QuicEncryption` field is of type `NDIS_QUIC_ENCRYPTION_OFFLOAD`, described above.
+The `QuicEncryption` field is of type `NDIS_QEO_SUPPORT_FLAGS`, described above.
 After the miniport driver handles the OID, it must send an `NDIS_STATUS_TASK_OFFLOAD_CURRENT_CONFIG` status indication with the updated configuration.
 
 The current QEO configuration can be queried with `OID_TCP_OFFLOAD_CURRENT_CONFIG`.
