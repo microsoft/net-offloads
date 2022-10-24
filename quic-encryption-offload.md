@@ -11,22 +11,6 @@ When running MsQuic in "max throughput" mode (which parallelizes QUIC and UDP wo
 This constitutes the largest CPU bottleneck in the scenario.
 
 
-## UDP Segmentation Offload (USO)
-
-> **Note**
-> This section is not directly about QEO, but provides context on an existing offload with which there may be interactions.
-
-Today, MsQuic uses USO on Windows to send a batch of UDP datagrams in a single syscall
-It first calls `getsockopt` with option `UDP_SEND_MSG_SIZE` to query for support of USO, and then calls `setsockopt` with `UDP_SEND_MSG_SIZE` to tell the USO provider the MTU size to use to split a buffer into multiple datagrams.
-Once the MTU has been set, QUIC calls `WSASendMsg` with a buffer (or a chain of buffers according to `WSASendMsg` gather semantics) containing multiple datagrams.
-The kernel creates a large UDP datagram from this buffer and posts it to the NDIS miniport, which breaks down the large datagram into a set of MTU-sized datagrams.
-
-QEO is orthogonal to USO and usable either with or without it: if USO is enabled, then the app can post multiple datagrams in a single send call; and if QEO is enabled, the datagram[s] are posted unencrypted.
-
-Windows documentation can be found [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/network/udp-segmentation-offload-uso-).
-MsQuic also uses the equivalent Linux API ([GSO](https://www.kernel.org/doc/html/latest/networking/segmentation-offloads.html#generic-segmentation-offload)).
-
-
 # Winsock API
 
 The proposed Winsock API for QEO is as follows.
@@ -71,7 +55,7 @@ Applications should not error on unexpected support flags being included, but in
 
 ## Establishing Encryption Parameters for a Connection
 
-If QEO is supported, the app then establishes crypto parameters for a connection by setting the `SO_QEO_CONNECTION` socket option with an option value of type `QEO_CONNECTION`.
+Before sending or receiving packets, the app establishes crypto parameters for a connection by setting the `SO_QEO_CONNECTION` socket option with an option value of type `QEO_CONNECTION`.
 
 ```C
 typedef enum {
@@ -105,7 +89,7 @@ typedef struct {
 
 ## Sending Packets
 
-The app then calls `WSASendMsg` with an unencrypted QUIC packet (or, if USO is also being used, a set of unencrypted QUIC packets).
+The app calls `WSASendMsg` with an unencrypted QUIC packet (or, if USO is also being used, a set of unencrypted QUIC packets).
 The packet(s) must be smaller than the current MTU by the size of the authentication tag, which is currently 16 bytes for all supported ciphers.
 This leaves space for the tag to be added to the packet during encryption.
 
@@ -204,7 +188,7 @@ TCPIP is expected to re-plumb any offloaded connections that still can be offloa
 > **TODO -** what type of OID to use for `OID_QUIC_CONNECTION_ENCRYPTION`? Some OIDs have high latency. If no type of OID is fast enough, perhaps instead of OID to plumb a connection, use a special OOB in first packet. Overview of the three available OID types (normal, direct, and synchronous): https://learn.microsoft.com/en-us/windows-hardware/drivers/network/synchronous-oid-request-interface-in-ndis-6-80
 
 
-Before the NDIS protocol driver posts packets for QEO, it first establishes encryption parameters for the associated QUIC connection by issuing `OID_QUIC_CONNECTION_ENCRYPTION`.
+Before the NDIS protocol driver posts any packets for a QEO connection, it first establishes encryption parameters for the connection by issuing `OID_QUIC_CONNECTION_ENCRYPTION`.
 The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains a pointer to an `NDIS_QUIC_CONNECTION`:
 
 ```C
@@ -248,11 +232,14 @@ typedef struct _NDIS_QUIC_ENCRYPTION_NET_BUFFER_LIST_INFO {
 ```
 
 NOTE: Normally the encryption parameters for the associated connection will have been established with `OID_QUIC_CONNECTION_ENCRYPTION` for every QEO packet that is posted, but this is not guaranteed.
-If a QEO packet is posted and no matching encryption parameters are established, the `NET_BUFFER_LIST` must be immediately completed by the miniport without transmitting the packet. (**TODO**: with what status code?)
+If a QEO packet is posted and no matching encryption parameters are established, the `NET_BUFFER_LIST` must be immediately completed by the miniport with status NDIS_STATUS_INVALID_PACKET without transmitting the packet.
 
-> **TODO -** Miniport will have to compute checksums
+First, the miniport encrypts the packet (the process for which is outlined in the Appendix), adding the AEAD tag to the end of the packet.
 
-> **TODO -** Explicitly mention that usage of QEO with USO must be supported.
+Then, the miniport computes the UDP checksum (if the UDP header checksum field in the packet is nonzero) and the IP checksum, as specified in RFC 768 and RFC 2460.
+
+> **Note**
+> If both USO and QEO are in use, then a posted `NET_BUFFER_LIST` will contain multiple unencrypted QUIC packets. The `MSS` field of `NDIS_UDP_SEGMENTATION_OFFLOAD_NET_BUFFER_LIST_INFO` will indicate the size of each *unencrypted* packet. The miniport must encrypt each packet in the `NET_BUFFER_LIST`, adding the AEAD tag to each, before continuing with USO processing (such as packet checksum computation).
 
 
 ## Receiving Packets
@@ -263,7 +250,7 @@ If a QEO packet is posted and no matching encryption parameters are established,
  
 # Appendix
 
-## Explaining QUIC Encryption
+## QUIC Encryption
  
 The following section outlines how the offloaded connection keys should be used to encrypt or decrypt QUIC short header packets.
 The full details can be found in [RFC 9001](https://www.rfc-editor.org/rfc/rfc9001#name-packet-protection).
@@ -289,8 +276,22 @@ The steps are detailed [here](https://www.rfc-editor.org/rfc/rfc9001#name-header
 
 Decryption is the reverse process: the header and then the payload is decrypted.
 
+## UDP Segmentation Offload (USO)
 
-## Linux API
+> **Note**
+> This section is not directly about QEO, but provides context on an existing offload with which there may be interactions.
+
+Today, MsQuic uses USO on Windows to send a batch of UDP datagrams in a single syscall
+It first calls `getsockopt` with option `UDP_SEND_MSG_SIZE` to query for support of USO, and then calls `setsockopt` with `UDP_SEND_MSG_SIZE` to tell the USO provider the MTU size to use to split a buffer into multiple datagrams.
+Once the MTU has been set, QUIC calls `WSASendMsg` with a buffer (or a chain of buffers according to `WSASendMsg` gather semantics) containing multiple datagrams.
+The kernel creates a large UDP datagram from this buffer and posts it to the NDIS miniport, which breaks down the large datagram into a set of MTU-sized datagrams.
+
+QEO is orthogonal to USO and usable either with or without it: if USO is enabled, then the app can post multiple datagrams in a single send call; and if QEO is enabled, the datagram[s] are posted unencrypted.
+
+Windows documentation can be found [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/network/udp-segmentation-offload-uso-).
+MsQuic also uses the equivalent Linux API ([GSO](https://www.kernel.org/doc/html/latest/networking/segmentation-offloads.html#generic-segmentation-offload)).
+
+## Linux API for QUIC encryption offload
 
 > **Note**
 > The Linux interface is also a work in progress. The following indicates the current state of the proposal.
