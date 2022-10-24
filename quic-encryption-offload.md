@@ -27,28 +27,6 @@ Windows documentation can be found [here](https://learn.microsoft.com/en-us/wind
 MsQuic also uses the equivalent Linux API ([GSO](https://www.kernel.org/doc/html/latest/networking/segmentation-offloads.html#generic-segmentation-offload)).
 
 
-## Linux API
-
-> **Note**
-> The Linux interface is also a work in progress. The following indicates the current state of the proposal.
-
-Linux developers are working on a send-side kernel/hardware encryption offload.
-See [here](https://lore.kernel.org/all/97789971-7cf5-ede1-11e2-df6494e75e44@gmail.com/).
-The focus on sender side is justified by the claim that server-side networking is typically send-dominant.
-
-The general API in Linux is:
-
-- The app associates a connection ID with encryption params (key, iv, cipher) with socket option `UDP_QUIC_ADD_TX_CONNECTION`. This state is removed when the socket is closed, or it can be removed explicitly with `UDP_QUIC_DEL_TX_CONNECTION` (there is discussion ongoing about using tuples instead of or alongside connection ID).
-
-- GSO is optionally set up with socket option `UDP_SEGMENT` (this value can be overridden per-send with ancillary data).
-
-- Sendmsg is called with some ancillary data: the connection ID length, the next packet number, and a flags field.
-
-- On key rollover, the app plumbs the new key.
-
-If a hardware offload is supported by the network interface, then it is used; otherwise the kernel takes care of the encryption and segmentation for usermode.
-
-
 # Winsock API
 
 The proposed Winsock API for QEO is as follows.
@@ -304,7 +282,9 @@ If a QEO packet is posted and no matching encryption parameters are established,
 
 > **TODO** everything else
  
- # Appendix: Explaining QUIC Encryption
+# Appendix
+
+## Explaining QUIC Encryption
  
 The following section outlines how the offloaded connection keys should be used to encrypt or decrypt QUIC short header packets.
 The full details can be found in [RFC 9001](https://www.rfc-editor.org/rfc/rfc9001#name-packet-protection).
@@ -329,3 +309,26 @@ The steps are detailed [here](https://www.rfc-editor.org/rfc/rfc9001#name-header
 > The output of this algorithm is a 5-byte mask that is applied to the protected header fields using exclusive OR. The least significant bits of the first byte of the packet are masked by the least significant bits of the first mask byte, and the packet number is masked with the remaining bytes. Any unused bytes of mask that might result from a shorter packet number encoding are unused.
 
 Decryption is the reverse process: the header and then the payload is decrypted.
+
+
+## Linux API
+
+> **Note**
+> The Linux interface is also a work in progress. The following indicates the current state of the proposal.
+
+Linux developers are working on a send-side kernel/hardware encryption offload.
+See [here](https://lore.kernel.org/all/97789971-7cf5-ede1-11e2-df6494e75e44@gmail.com/).
+The focus on sender side is justified by the claim that server-side networking is typically send-dominant.
+
+The general API in Linux is:
+
+- The app associates a connection ID with encryption params (key, iv, cipher) with socket option `UDP_QUIC_ADD_TX_CONNECTION`. This state is removed when the socket is closed, or it can be removed explicitly with `UDP_QUIC_DEL_TX_CONNECTION` (there is discussion ongoing about using tuples instead of or alongside connection ID).
+
+- GSO is optionally set up with socket option `UDP_SEGMENT` (this value can be overridden per-send with ancillary data).
+
+- Sendmsg is called with some ancillary data: the connection ID length, the next packet number, and a flags field.
+
+- On key rollover, the app plumbs the new key.
+
+If a hardware offload is supported by the network interface, then it is used; otherwise the kernel takes care of the encryption and segmentation for usermode.
+
