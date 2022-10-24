@@ -239,7 +239,7 @@ First, the miniport encrypts the packet (the process for which is outlined in th
 Then, the miniport computes the UDP checksum (if the UDP header checksum field in the packet is nonzero) and the IP checksum, as specified in RFC 768 and RFC 2460.
 
 > **Note**
-> If both USO and QEO are in use, then a posted `NET_BUFFER_LIST` will contain multiple unencrypted QUIC packets. The `MSS` field of `NDIS_UDP_SEGMENTATION_OFFLOAD_NET_BUFFER_LIST_INFO` will indicate the size of each *unencrypted* packet. The miniport must encrypt each packet in the `NET_BUFFER_LIST`, adding the AEAD tag to each, before continuing with USO processing (such as packet checksum computation).
+> If both USO and QEO are in use, then a posted `NET_BUFFER_LIST` will contain multiple unencrypted QUIC packets. The `MSS` field of `NDIS_UDP_SEGMENTATION_OFFLOAD_NET_BUFFER_LIST_INFO` will indicate the size of each *unencrypted* packet (including the MAC, IP and UDP headers and QUIC packet but not including the AEAD tag). The miniport must encrypt each packet in the `NET_BUFFER_LIST`, adding the AEAD tag to each, before continuing with USO processing (such as packet checksum computation). See Appendix for more information on USO.
 
 
 ## Receiving Packets
@@ -279,7 +279,7 @@ Decryption is the reverse process: the header and then the payload is decrypted.
 ## UDP Segmentation Offload (USO)
 
 > **Note**
-> This section is not directly about QEO, but provides context on an existing offload with which there may be interactions.
+> This section is not directly about QEO, but provides context on an existing offload with which there are interactions.
 
 Today, MsQuic uses USO on Windows to send a batch of UDP datagrams in a single syscall
 It first calls `getsockopt` with option `UDP_SEND_MSG_SIZE` to query for support of USO, and then calls `setsockopt` with `UDP_SEND_MSG_SIZE` to tell the USO provider the MTU size to use to split a buffer into multiple datagrams.
