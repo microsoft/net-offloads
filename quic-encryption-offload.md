@@ -195,7 +195,8 @@ After the miniport driver handles the OID, it must send an `NDIS_STATUS_TASK_OFF
 The current QEO configuration can be queried with `OID_TCP_OFFLOAD_CURRENT_CONFIG`.
 NDIS handles this OID and does not pass it down to the miniport driver.
 
-> **TODO -** what happens to existing plumbed connections when the config changes? (e.g. what if a connection was using a cipher type and that cipher type has been removed?)
+Every time the miniport indicates an updated configuration via a new status indication, it is considered a reset of all previously offloaded connections.
+TCPIP is expected to re-plumb any offloaded connections that still can be offloaded with the new configuration.
 
 
 ## Establishing Encryption Parameters for a Connection
