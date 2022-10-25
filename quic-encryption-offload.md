@@ -244,9 +244,27 @@ Then, the miniport computes the UDP checksum (if the UDP header checksum field i
 
 ## Receiving Packets
 
-> **TODO -** When decryption fails, what to do? (two cases: connection hasn't been plumbed, and connection has been plumbed but decryption fails due to invalid packet)
+When the miniport receives a packet from the network, if the packet matches a connection that has already been set up with `OID_QUIC_CONNECTION_ENCRYPTION`, the miniport decrypts the packet (using the process outlined in the Appendix).
+The miniport then indicates the packet with OOB data in the format `NDIS_QUIC_ENCRYPTION_RECEIVE_NET_BUFFER_LIST_INFO`:
 
-> **TODO** everything else
+> **TODO** Should we use the same OOB "Id" as for TX, or a different one?
+
+```C
+typedef enum {
+    NdisQuicDecryptionSucceeded;
+    NdisQuicDecryptionFailed;
+} NDIS_QUIC_DECRYPTION_STATUS;
+
+typedef struct _NDIS_QUIC_ENCRYPTION_RECEIVE_NET_BUFFER_LIST_INFO {
+    uint8_t DecryptionStatus;
+} NDIS_QUIC_ENCRYPTION_RECEIVE_NET_BUFFER_LIST_INFO;
+```
+
+`NdisQuicDecryptionFailed` is set as the `DecryptionStatus` if a connection record was found matching the packet but packet decryption failed.
+
+> **TODO** instead of indicating a packet with status NdisQuicDecryptionFailed that will very likely fail to be decrypted by the upper layer, should we add an interface perf counter (is that something that we can do?) and have the miniport increment that and not indicate the packet at all?
+
+> **TODO** specify interaction with URO
  
 # Appendix
 
