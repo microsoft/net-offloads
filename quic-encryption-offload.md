@@ -10,8 +10,15 @@ Today, MsQuic builds each QUIC packet by writing headers and copying application
 When running MsQuic in "max throughput" mode (which parallelizes QUIC and UDP work), for bulk throughput scenarios (i.e., large file transfers), as much as 70% of a single CPU may be consumed by encryption.
 This constitutes the largest CPU bottleneck in the scenario.
 
+## Table of Context
 
-# Winsock API
+- [Winsock](#winsock)
+- [TCPIP](#tcpip)
+- [NDIS](#ndis)
+- [Appendix](#appendix)
+
+
+# Winsock
 
 The proposed Winsock API for QEO is as follows.
 
@@ -120,9 +127,9 @@ The `ConnectionIdLength` is passed to help the offload provider read the connect
 - When considering how this interacts with URO, the only requirement is that ancillary data correctly applies to all URO packets
 
 
-# TCPIP Updates for QEO
+# TCPIP
 
-This section describes necessary updates in the Windows network stack to support QEO.
+This section describes necessary updates in the Windows network stack (mostly in `tcpip.sys`) to support QEO.
 
 TCPIP will support graceful software fallback in the many cases where the hardware capability isn't fully supported.
 Some of these scenarios include:
@@ -150,7 +157,7 @@ Some other requirements:
 - Loopback support must be handled as well.
 
 
-# NDIS API
+# NDIS
 
 The NDIS interface for QEO is used for communication between TCPIP (which posts NBLs containing unencrypted QUIC short header packets) and the NDIS miniport driver (which encrypts and sends the QUIC packets).
 
