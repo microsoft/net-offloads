@@ -269,9 +269,10 @@ typedef struct _NDIS_QUIC_ENCRYPTION_RECEIVE_NET_BUFFER_LIST_INFO {
 # Appendix
 
 ## QUIC Encryption
- 
-The following section outlines how the offloaded connection keys should be used to encrypt or decrypt QUIC short header packets.
-The full details can be found in [RFC 9001](https://www.rfc-editor.org/rfc/rfc9001#name-packet-protection).
+
+> **Note**
+> This section only outlines how QUIC encryption works. For the full details, [RFC 9001](https://www.rfc-editor.org/rfc/rfc9001#name-packet-protection) should be consulted.
+
 The `PayloadKey` and `HeaderKey` fields are the keys used directly in the AEAD functions to encrypt/decrypt the payload and header.
 They are not the traffic secrets derived by the TLS handshake.
 
