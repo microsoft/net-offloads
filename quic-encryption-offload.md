@@ -68,7 +68,7 @@ typedef enum {
 typedef struct {
     BOOLEAN IsAdd;
     BOOLEAN IsTransmit;
-    NDIS_QUIC_CIPHER_TYPE CipherType;
+    QEO_CIPHER_TYPE CipherType;
     uint8_t PayloadKeyLength;
     uint8_t PayloadKey[32];
     uint8_t HeaderKeyLength;
@@ -115,7 +115,7 @@ The `ConnectionIdLength` is passed to help the offload provider read the connect
 - The app allocates space for RX ancillary data struct: `QEO_RX_ANCILLARY_DATA`
   - Has an enum of the following possible states: `{ QEO_RX_ENCRYPTED, QEO_RX_DECRYPTED, QEO_RX_DECRYPT_FAILED }`
   - When the state is `QEO_RX_ENCRYPTED` it means the received QUIC packet is still encrypted
-  - When the stats is `QEO_RX_DECRYPTED` it means the received QUIC packet has been successfully decrypted and the trailing 16-byte tag has been elided
+  - When the state is `QEO_RX_DECRYPTED` it means the received QUIC packet has been successfully decrypted and the trailing 16-byte tag has been elided
   - When the state is `QEO_RX_DECRYPT_FAILED` it means the received QUIC packet failed to be decrypted, even though it was offloaded
 - When considering how this interacts with URO, the only requirement is that ancillary data correctly applies to all URO packets
 
@@ -138,7 +138,7 @@ To support SW fallback, the following will have to be added to TCPIP:
 
 - All offload state must be mirrored in TCPIP.
 - Support capabilities can only be advertised for features that can be implemented in software. Any missing SW features (e.g. ChaCha20-Poly1305) cannot be advertised, even if the HW supports it.
-- In addition to the offloaded connection state passed by the app, TCPIP must also track if the state has been succeessfully offloaded to the NIC.
+- In addition to the offloaded connection state passed by the app, TCPIP must also track if the state has been successfully offloaded to the NIC.
 - When an app offloads a connection, it should first go into the local mirror (synchronously) and then be offloaded to the NIC (likely async).
 - In the TX path, any app-offloaded connection that hasn't been successfully offloaded to the NIC must be handled by the SW fallback.
 - In the RX path, any app-offloaded connection that hasn't been successfully offloaded to the NIC must be handled by the SW fallback.
@@ -146,7 +146,7 @@ To support SW fallback, the following will have to be added to TCPIP:
 
 Some other requirements:
 
-- When doing sofware USO combined with hardware QEO, TCPIP must not compute checksums, since the payload will change.
+- When doing software USO combined with hardware QEO, TCPIP must not compute checksums, since the payload will change.
 - Loopback support must be handled as well.
 
 
