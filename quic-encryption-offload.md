@@ -250,7 +250,7 @@ The miniport then indicates the packet with OOB data in the format `NDIS_QUIC_EN
 > **TODO** Should we use the same OOB "Id" as for TX, or a different one?
 
 ```C
-typedef enum {
+typedef enum _NDIS_QUIC_DECRYPTION_STATUS {
     NdisQuicDecryptionSucceeded;
     NdisQuicDecryptionFailed;
 } NDIS_QUIC_DECRYPTION_STATUS;
@@ -261,8 +261,6 @@ typedef struct _NDIS_QUIC_ENCRYPTION_RECEIVE_NET_BUFFER_LIST_INFO {
 ```
 
 `NdisQuicDecryptionFailed` is set as the `DecryptionStatus` if a connection record was found matching the packet but packet decryption failed.
-
-> **TODO** instead of indicating a packet with status NdisQuicDecryptionFailed that will very likely fail to be decrypted by the upper layer, should we add an interface perf counter (is that something that we can do?) and have the miniport increment that and not indicate the packet at all?
 
 > **TODO** specify interaction with URO
  
