@@ -224,7 +224,7 @@ typedef struct _NDIS_QUIC_CONNECTION {
     uint16_t UdpPort;         // Destination port.
     uint8_t ConnectionIdLength;
     uint8_t Address[16];      // Destination IP address.
-    uint8_t ConnectionId[20]; // Limit to max of QUIC v1 & v2
+    uint8_t ConnectionId[20]; // QUIC v1 and v2 max CID size
     uint8_t PayloadKey[32];   // Length determined by CipherType
     uint8_t HeaderKey[32];    // Length determined by CipherType
     uint8_t PayloadIv[12];
