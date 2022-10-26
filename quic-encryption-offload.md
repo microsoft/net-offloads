@@ -62,36 +62,93 @@ Applications should not error on unexpected support flags being included, but in
 
 ## Establishing Encryption Parameters for a Connection
 
-Before sending or receiving packets, the app establishes crypto parameters for a connection by setting the `SO_QEO_CONNECTION` socket option with an option value of type `QEO_CONNECTION`.
+Before sending or receiving packets, the app establishes crypto parameters for a connection by setting the `SO_QEO_CONNECTION` socket option with an option value of an array of type `QEO_CONNECTION`.
 
 ```C
-typedef enum {
-    AesGcm128,
-    AesGcm256,
-    ChaCha20Poly1305,
-    AesCcm128
+typedef enum _QEO_CIPHER_TYPE {
+    QEO_CIPHER_TYPE_AEAD_AES_128_GCM,
+    QEO_CIPHER_TYPE_AEAD_AES_256_GCM,
+    QEO_CIPHER_TYPE_AEAD_CHACHA20_POLY1305,
+    QEO_CIPHER_TYPE_AEAD_AES_128_CCM
 } QEO_CIPHER_TYPE;
 
-typedef struct {
-    BOOLEAN IsAdd;
-    BOOLEAN IsTransmit;
+typedef struct _QEO_CONNECTION {
+    BOOLEAN IsAdd : 1;
+    BOOLEAN IsTransmit : 1;
+    BOOLEAN RESERVED : 6;
     QEO_CIPHER_TYPE CipherType;
-    uint8_t PayloadKeyLength;
-    uint8_t PayloadKey[32];
-    uint8_t HeaderKeyLength;
-    uint8_t HeaderKey[32];
-    uint8_t PayloadIv[12];
-    uint16_t Port;
     ADDRESS_FAMILY AddressFamily;
-    uint8_t Address[16];
+    uint16_t UdpPort;
     uint8_t ConnectionIdLength;
-    uint8_t ConnectionId[MAX_CID_LENGTH];
+    uint8_t Address[16];
+    uint8_t ConnectionId[20]; // Limit to max of QUIC v1 & v2
+    uint8_t PayloadKey[32];   // Length determined by CipherType
+    uint8_t HeaderKey[32];    // Length determined by CipherType
+    uint8_t PayloadIv[12];
 } QEO_CONNECTION;
 ```
 
-> **TODO -** Explain meaning of fields.
+### QEO_CONNECTION Parameters
 
-> **TODO -** support adding N and removing M connections in one request for key update
+#### IsAdd
+
+This bit indicates if the new connection offload is being added (when set to `1`) or being removed (when set to `0`).
+
+#### IsTransmit
+
+This bit indicates if the new connection offload is for transmit (when set to `1`) or for receive (when set to `0`).
+
+#### RESERVED
+
+Reserved for possible future use. Must be set to `0`.
+
+#### CipherType
+
+This indicates the type of crypographic algorithm being used for the offload.
+
+#### AddressFamily
+
+This indicates the family (IPv4 or IPv6) of the IP address contained in the `Address` field.
+
+#### UdpPort
+
+This is the UDP port associated with the connection offload, in network byte order.
+
+#### ConnectionIdLength
+
+This indicates the length of the QUIC connection ID in the `ConnectionId` field. It may be zero.
+
+#### Address
+
+This is the IPv4 or IPv6 address (type depending on `AddressFamily`) for the connection offload.
+
+#### ConnectionId
+
+This is the QUIC connection ID for the connection offload.
+
+#### PayloadKey
+
+The AEAD key (not traffic secret) for the QUIC packet payload encryption or decryption (depending on `IsTransmit`) of the connection.
+
+#### HeaderKey
+
+The AEAD key (not traffic secret) for the QUIC packet header encryption or decryption (depending on `IsTransmit`) of the connection.
+
+#### PayloadIv
+
+The AEAD IV for the QUIC packet payload encryption or decryption (depending on `IsTransmit`) of the connection.
+
+
+### Return value
+
+If no error occurs, `setsockopt` returns zero.
+If QEO or the specific `CipherType` is not supported by the operating system, then the `setsockopt` call will fail with status `WSAEINVAL`.
+
+
+### Remarks
+
+The `SO_QEO_CONNECTION` socket option is used to push one or more `QEO_CONNECTION` structs to add or remove QUIC connection offloads.
+See the following sections on [Sending Packets](#sending-packets) and [Receiving Packets](#receiving-packets) for how to then leverage this offload on the datapath.
 
 
 ## Sending Packets
@@ -103,7 +160,7 @@ This leaves space for the tag to be added to the packet during encryption.
 The app passes ancillary data to `WSASendMsg` in the form of `QEO_TX_ANCILLARY_DATA`:
 
 ```C
-typedef struct { 
+typedef struct _QEO_TX_ANCILLARY_DATA { 
     uint64_t NextPacketNumber; 
     uint8_t ConnectionIdLength;  
 } QEO_TX_ANCILLARY_DATA;
@@ -116,15 +173,27 @@ The `ConnectionIdLength` is passed to help the offload provider read the connect
 
 ## Receiving Packets
 
-> **TODO -** Expand the bullets below with full details.
+The app calls `WSARecvMsg` with enough space for the `QEO_DECRYPTION_STATUS` ancillary data in the `Control` buffer.
+The networking stack then fills in the status with the appropriate value depending on the resulting decryption offload of the received QUIC packet.
 
-- The app sets the new `SO_QEO_CONNECTION` socket option to offload RX of a connection.
-- The app allocates space for RX ancillary data struct: `QEO_RX_ANCILLARY_DATA`
-  - Has an enum of the following possible states: `{ QEO_RX_ENCRYPTED, QEO_RX_DECRYPTED, QEO_RX_DECRYPT_FAILED }`
-  - When the state is `QEO_RX_ENCRYPTED` it means the received QUIC packet is still encrypted
-  - When the state is `QEO_RX_DECRYPTED` it means the received QUIC packet has been successfully decrypted and the trailing 16-byte tag has been elided
-  - When the state is `QEO_RX_DECRYPT_FAILED` it means the received QUIC packet failed to be decrypted, even though it was offloaded
-- When considering how this interacts with URO, the only requirement is that ancillary data correctly applies to all URO packets
+```C
+typedef enum _QEO_DECRYPTION_STATUS {
+    QEO_DECRYPTION_SUCCESS,  // Had lookup and successfully decrypted
+    QEO_DECRYPTION_FAILED,   // Had lookup but failed to decrypt
+} QEO_DECRYPTION_STATUS;
+```
+
+Value | Meaning
+--- | ---
+**QEO_DECRYPTION_SUCCESS**<br> | The received QUIC packet has been successfully decrypted and the trailing 16-byte tag has been elided.
+**QEO_DECRYPTION_FAILED**<br> | The received QUIC packet failed to be decrypted, even though it was offloaded.
+
+### Remarks
+
+If the `QEO_DECRYPTION_STATUS` ancillary data is not present then it means there was no offloaded connection that matched the received QUIC packet(s).
+
+When considering how this interacts with URO, the only requirement is that ancillary data correctly applies to all URO packets.
+So all coalesced QUIC packets indicated in a single URO must have the same decryption status to be indicated together.
 
 
 # TCPIP
