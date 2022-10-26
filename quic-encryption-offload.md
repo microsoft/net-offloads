@@ -262,7 +262,7 @@ TCPIP is expected to re-plumb any offloaded connections that still can be offloa
 
 ## Establishing Encryption Parameters for a Connection
 
-> **TODO -** what type of OID to use for `OID_QUIC_CONNECTION_ENCRYPTION`? Some OIDs have high latency. If no type of OID is fast enough, perhaps instead of OID to plumb a connection, use a special OOB in first packet. Overview of the three available OID types (normal, direct, and synchronous): https://learn.microsoft.com/en-us/windows-hardware/drivers/network/synchronous-oid-request-interface-in-ndis-6-80
+> **TODO -** if `OID_QUIC_CONNECTION_ENCRYPTION` can be completed quickly by the miniport, we can just have it be a direct (or synchronous?) OID. Check this with NIC vendors. If the connections can't be plumbed in a matter of microseconds, consider instead using a special OOB in first packet to plumb the connection. Info about synchronous vs direct OIDs: https://learn.microsoft.com/en-us/windows-hardware/drivers/network/synchronous-oid-request-interface-in-ndis-6-80
 
 
 Before the NDIS protocol driver posts any packets for a QEO connection, it first establishes encryption parameters for the connection by issuing `OID_QUIC_CONNECTION_ENCRYPTION`.
