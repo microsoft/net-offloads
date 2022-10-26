@@ -171,7 +171,6 @@ The networking stack then fills in the status with the appropriate value dependi
 
 ```C
 typedef enum _QEO_DECRYPTION_STATUS {
-    QEO_DECRYPTION_UNKNOWN,  // No lookup found
     QEO_DECRYPTION_SUCCESS,  // Had lookup and successfully decrypted
     QEO_DECRYPTION_FAILED,   // Had lookup but failed to decrypt
 } QEO_DECRYPTION_STATUS;
@@ -179,11 +178,12 @@ typedef enum _QEO_DECRYPTION_STATUS {
 
 Value | Meaning
 --- | ---
-**QEO_DECRYPTION_UNKNOWN**<br> | The received QUIC packet was not decrypted by the offload.
 **QEO_DECRYPTION_SUCCESS**<br> | The received QUIC packet has been successfully decrypted and the trailing 16-byte tag has been elided.
 **QEO_DECRYPTION_FAILED**<br> | The received QUIC packet failed to be decrypted, even though it was offloaded.
 
 ### Remarks
+
+If the `QEO_DECRYPTION_STATUS` ancillary data is not present then it means there was no offloaded connection that matched the received QUIC packet(s).
 
 When considering how this interacts with URO, the only requirement is that ancillary data correctly applies to all URO packets.
 So all coalesced QUIC packets indicated in a single URO must have the same decryption status to be indicated together.
