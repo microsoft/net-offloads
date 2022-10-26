@@ -53,17 +53,16 @@ If QEO is not supported by the operating system, then the `getsockopt` call will
 
 ### Remarks
 
-Not all flags are required to be set, and some very likely will not be set, depending on the capabilities of the system.
-But if the `getsockopt` call does succeed, at least one non-zero flag (not `QEO_SUPPORT_FLAG_NONE`) must be set.
-Note that the capabilities returned by this do not necessarily map to any particular network interface support since the OS provides software fallback.
+If the `getsockopt` call succeeds, at least one flag will be set.
+Note that the returned capabilities do not necessarily indicate that a network interface supports QEO: the encryption offload may happen in software if the interface on which the socket sends packets does not support it.
 
-Future OS versions may introduce additional support flags.
-Applications should not error on unexpected support flags being included, but instead, should silently ignore them.
+Future OS versions may introduce new flags.
+Therefore, applications should silently ignore unrecognized support flags.
 
 
 ## Establishing Encryption Parameters for a Connection
 
-Before sending or receiving packets, the app establishes crypto parameters for a connection by setting the `SO_QEO_CONNECTION` socket option with an option value of an array of type `QEO_CONNECTION`.
+Before sending or receiving packets, the app establishes crypto parameters for a connection by setting the `SO_QEO_CONNECTION` socket option with an option value that is an array of type `QEO_CONNECTION`. Each element in the array describes a transmit or receive connection offload to be established (to set up the offload for a single connection for both transmit and receive, two `QEO_CONNECTION`s must be passed).
 
 ```C
 typedef enum _QEO_CIPHER_TYPE {
@@ -93,63 +92,57 @@ typedef struct _QEO_CONNECTION {
 
 #### IsAdd
 
-This bit indicates if the new connection offload is being added (when set to `1`) or being removed (when set to `0`).
+Indicates whether the connection offload is being added (`1`) or removed (`0`).
 
 #### IsTransmit
 
-This bit indicates if the new connection offload is for transmit (when set to `1`) or for receive (when set to `0`).
+Indicates whether the offload is for connection transmit (`1`) or receive (`0`).
 
 #### RESERVED
 
-Reserved for possible future use. Must be set to `0`.
+Reserved for future use. Must be set to `0`.
 
 #### CipherType
 
-This indicates the type of crypographic algorithm being used for the offload.
+Indicates the cipher type to be used.
 
 #### AddressFamily
 
-This indicates the family (IPv4 or IPv6) of the IP address contained in the `Address` field.
+Indicates the family (IPv4 or IPv6) of the IP address contained in the `Address` field.
 
 #### UdpPort
 
-This is the UDP port associated with the connection offload, in network byte order.
+The destination UDP port of the connection, in network byte order.
 
 #### ConnectionIdLength
 
-This indicates the length of the QUIC connection ID in the `ConnectionId` field. It may be zero.
+The length of the QUIC connection ID in the `ConnectionId` field. May be zero.
 
 #### Address
 
-This is the IPv4 or IPv6 address (type depending on `AddressFamily`) for the connection offload.
+The IPv4 or IPv6 (depending on `AddressFamily`) destination address of the connection.
 
 #### ConnectionId
 
-This is the QUIC connection ID for the connection offload.
+The QUIC connection ID.
 
 #### PayloadKey
 
-The AEAD key (not traffic secret) for the QUIC packet payload encryption or decryption (depending on `IsTransmit`) of the connection.
+The AEAD key (not traffic secret) for the QUIC packet payload encryption or decryption (depending on `IsTransmit`).
 
 #### HeaderKey
 
-The AEAD key (not traffic secret) for the QUIC packet header encryption or decryption (depending on `IsTransmit`) of the connection.
+The AEAD key (not traffic secret) for the QUIC packet header encryption or decryption (depending on `IsTransmit`).
 
 #### PayloadIv
 
-The AEAD IV for the QUIC packet payload encryption or decryption (depending on `IsTransmit`) of the connection.
+The AEAD IV for the QUIC packet payload encryption or decryption (depending on `IsTransmit`).
 
 
 ### Return value
 
 If no error occurs, `setsockopt` returns zero.
 If QEO or the specific `CipherType` is not supported by the operating system, then the `setsockopt` call will fail with status `WSAEINVAL`.
-
-
-### Remarks
-
-The `SO_QEO_CONNECTION` socket option is used to push one or more `QEO_CONNECTION` structs to add or remove QUIC connection offloads.
-See the following sections on [Sending Packets](#sending-packets) and [Receiving Packets](#receiving-packets) for how to then leverage this offload on the datapath.
 
 
 ## Sending Packets
@@ -175,7 +168,7 @@ The `ConnectionIdLength` is passed to help the offload provider read the connect
 ## Receiving Packets
 
 The app calls `WSARecvMsg` with enough space for the `QEO_DECRYPTION_STATUS` ancillary data in the `Control` buffer.
-The networking stack then fills in the status with the appropriate value depending on the resulting decryption offload of the received QUIC packet.
+The returned ancillary data indicates whether the packet was successfully decrypted.
 
 ```C
 typedef enum _QEO_DECRYPTION_STATUS {
