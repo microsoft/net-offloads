@@ -269,27 +269,35 @@ Before the NDIS protocol driver posts any packets for a QEO connection, it first
 The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains a pointer to an `NDIS_QUIC_CONNECTION`:
 
 ```C
-typedef enum {
-    Aes128Gcm,
-    Aes256Gcm,
-    ChaCha20Poly1305,
-    Aes128Ccm
+typedef enum _NDIS_QUIC_OPERATION_TYPE{
+    NDIS_QUIC_OPERATION_ADD,     // Add (or modify) a QUIC connection offload
+    NDIS_QUIC_OPERATION_REMOVE,  // Remove a QUIC connection offload
+} NDIS_QUIC_OPERATION_TYPE;
+
+typedef enum _NDIS_QUIC_DIRECTION_TYPE{
+    NDIS_QUIC_DIRECTION_TRANSMIT, // An offload for the transmit path
+    NDIS_QUIC_DIRECTION_RECEIVE,  // An offload for the receive path
+} NDIS_QUIC_DIRECTION_TYPE;
+
+typedef enum _NDIS_QUIC_CIPHER_TYPE{
+    NDIS_QUIC_CIPHER_TYPE_AEAD_AES_128_GCM,
+    NDIS_QUIC_CIPHER_TYPE_AEAD_AES_256_GCM,
+    NDIS_QUIC_CIPHER_TYPE_AEAD_CHACHA20_POLY1305,
+    NDIS_QUIC_CIPHER_TYPE_AEAD_AES_128_CCM,
 } NDIS_QUIC_CIPHER_TYPE;
 
 typedef struct _NDIS_QUIC_CONNECTION {
-    BOOLEAN IsAdd;
-    BOOLEAN IsTransmit;
-    NDIS_QUIC_CIPHER_TYPE CipherType;
-    uint8_t PayloadKeyLength;
-    uint8_t PayloadKey[32];
-    uint8_t HeaderKeyLength;
-    uint8_t HeaderKey[32];
-    uint8_t PayloadIv[12];
-    uint16_t Port; // Destination port.
+    NDIS_QUIC_OPERATION_TYPE Operation : 1;
+    NDIS_QUIC_DIRECTION_TYPE Direction : 1;
+    NDIS_QUIC_CIPHER_TYPE CipherType : 30;
     ADDRESS_FAMILY AddressFamily;
-    uint8_t Address[16]; // Destination IP address.
+    uint16_t UdpPort;         // Destination port.
     uint8_t ConnectionIdLength;
-    uint8_t ConnectionId[MAX_CID_LENGTH];
+    uint8_t Address[16];      // Destination IP address.
+    uint8_t ConnectionId[20]; // QUIC v1 and v2 max CID size
+    uint8_t PayloadKey[32];   // Length determined by CipherType
+    uint8_t HeaderKey[32];    // Length determined by CipherType
+    uint8_t PayloadIv[12];
 } NDIS_QUIC_CONNECTION;
 ```
 
