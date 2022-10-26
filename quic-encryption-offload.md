@@ -317,7 +317,7 @@ First, the miniport encrypts the packet (the process for which is outlined in th
 Then, the miniport computes the UDP checksum (if the UDP header checksum field in the packet is nonzero) and the IP checksum, as specified in RFC 768 and RFC 2460.
 
 > **Note**
-> If both USO and QEO are in use, then a posted `NET_BUFFER_LIST` will contain multiple unencrypted QUIC packets. The `MSS` field of `NDIS_UDP_SEGMENTATION_OFFLOAD_NET_BUFFER_LIST_INFO` will indicate the size of each *unencrypted* packet (including the MAC, IP and UDP headers and QUIC packet but not including the AEAD tag). The miniport must encrypt each packet in the `NET_BUFFER_LIST`, adding the AEAD tag to each, before continuing with USO processing (such as packet checksum computation). See Appendix for more information on USO.
+> If both USO and QEO are in use, then a posted `NET_BUFFER_LIST` will contain multiple unencrypted QUIC packets. The `MSS` field of `NDIS_UDP_SEGMENTATION_OFFLOAD_NET_BUFFER_LIST_INFO` will indicate the size of each *unencrypted* QUIC packet (i.e., the size of the UDP payload before the AEAD tag is added). The miniport must encrypt each packet in the `NET_BUFFER_LIST`, adding the AEAD tag to each, before continuing with USO processing (such as packet checksum computation). See Appendix for more information on USO.
 
 
 ## Receiving Packets
