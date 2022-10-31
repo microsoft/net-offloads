@@ -255,24 +255,21 @@ TCPIP is expected to re-plumb any offloaded connections that still can be offloa
 
 ## Establishing Encryption Parameters for a Connection
 
-> **TODO -** if `OID_QUIC_CONNECTION_ENCRYPTION` can be completed quickly by the miniport, we can just have it be a direct (or synchronous?) OID. Check this with NIC vendors. If the connections can't be plumbed in a matter of microseconds, consider instead using a special OOB in first packet to plumb the connection. Info about synchronous vs direct OIDs: https://learn.microsoft.com/en-us/windows-hardware/drivers/network/synchronous-oid-request-interface-in-ndis-6-80
-
-
-Before the NDIS protocol driver posts any packets for a QEO connection, it first establishes encryption parameters for the connection by issuing `OID_QUIC_CONNECTION_ENCRYPTION`.
+Before the NDIS protocol driver posts any packets for a QEO connection, it first establishes encryption parameters for the connection by issuing the Direct OID `OID_QUIC_CONNECTION_ENCRYPTION`.
 The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains a pointer to an `NDIS_QUIC_CONNECTION`:
 
 ```C
-typedef enum _NDIS_QUIC_OPERATION_TYPE{
+typedef enum _NDIS_QUIC_OPERATION_TYPE {
     NDIS_QUIC_OPERATION_ADD,     // Add (or modify) a QUIC connection offload
     NDIS_QUIC_OPERATION_REMOVE,  // Remove a QUIC connection offload
 } NDIS_QUIC_OPERATION_TYPE;
 
-typedef enum _NDIS_QUIC_DIRECTION_TYPE{
+typedef enum _NDIS_QUIC_DIRECTION_TYPE {
     NDIS_QUIC_DIRECTION_TRANSMIT, // An offload for the transmit path
     NDIS_QUIC_DIRECTION_RECEIVE,  // An offload for the receive path
 } NDIS_QUIC_DIRECTION_TYPE;
 
-typedef enum _NDIS_QUIC_CIPHER_TYPE{
+typedef enum _NDIS_QUIC_CIPHER_TYPE {
     NDIS_QUIC_CIPHER_TYPE_AEAD_AES_128_GCM,
     NDIS_QUIC_CIPHER_TYPE_AEAD_AES_256_GCM,
     NDIS_QUIC_CIPHER_TYPE_AEAD_CHACHA20_POLY1305,
