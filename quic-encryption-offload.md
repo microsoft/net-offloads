@@ -340,8 +340,6 @@ typedef struct _NDIS_QUIC_ENCRYPTION_RECEIVE_NET_BUFFER_LIST_INFO {
 ```
 
 `NdisQuicDecryptionFailed` is set as the `DecryptionStatus` if a connection record was found matching the packet but packet decryption failed.
-
-> **TODO** specify interaction with URO
  
 # Appendix
 
