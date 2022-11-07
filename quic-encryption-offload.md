@@ -65,6 +65,16 @@ Therefore, applications should silently ignore unrecognized support flags.
 Before sending or receiving packets, the app establishes crypto parameters for a connection by setting the `SO_QEO_CONNECTION` socket option with an option value that is an array of type `QEO_CONNECTION`. Each element in the array describes a transmit or receive connection offload to be established (to set up the offload for a single connection for both transmit and receive, two `QEO_CONNECTION`s must be passed).
 
 ```C
+typedef enum _QEO_OPERATION {
+    QEO_OPERATION_ADD,     // Add (or modify) a QUIC connection offload
+    QEO_OPERATION_REMOVE,  // Remove a QUIC connection offload
+} QEO_OPERATION;
+
+typedef enum _QEO_DIRECTION {
+    QEO_DIRECTION_TRANSMIT, // An offload for the transmit path
+    QEO_DIRECTION_RECEIVE,  // An offload for the receive path
+} QEO_DIRECTION;
+
 typedef enum _QEO_CIPHER_TYPE {
     QEO_CIPHER_TYPE_AEAD_AES_128_GCM,
     QEO_CIPHER_TYPE_AEAD_AES_256_GCM,
@@ -73,10 +83,11 @@ typedef enum _QEO_CIPHER_TYPE {
 } QEO_CIPHER_TYPE;
 
 typedef struct _QEO_CONNECTION {
-    BOOLEAN IsAdd : 1;
-    BOOLEAN IsTransmit : 1;
-    BOOLEAN RESERVED : 6;
-    QEO_CIPHER_TYPE CipherType;
+    uint32_t Operation  : 1;  // QEO_OPERATION
+    uint32_t Direction  : 1;  // QEO_DIRECTION
+    uint32_t KeyPhase   : 1;
+    uint32_t Reserved   : 13; // Must be set to 0. Don't read.
+    uint32_t CipherType : 16; // QEO_CIPHER_TYPE
     ADDRESS_FAMILY AddressFamily;
     uint16_t UdpPort;
     uint8_t ConnectionIdLength;
@@ -97,6 +108,10 @@ Indicates whether the connection offload is being added (`1`) or removed (`0`).
 #### IsTransmit
 
 Indicates whether the offload is for connection transmit (`1`) or receive (`0`).
+
+#### KeyPhase
+
+Indicates the key phase bit for the connection.
 
 #### RESERVED
 
@@ -261,15 +276,15 @@ The `InformationBufferLength` field contains the length of the array in bytes.
 The `Revision` field in the `NDIS_OBJECT_HEADER` of the `NDIS_OID_REQUEST` is set to 0.
 
 ```C
-typedef enum _NDIS_QUIC_OPERATION_TYPE {
+typedef enum _NDIS_QUIC_OPERATION {
     NDIS_QUIC_OPERATION_ADD,     // Add (or modify) a QUIC connection offload
     NDIS_QUIC_OPERATION_REMOVE,  // Remove a QUIC connection offload
-} NDIS_QUIC_OPERATION_TYPE;
+} NDIS_QUIC_OPERATION;
 
-typedef enum _NDIS_QUIC_DIRECTION_TYPE {
+typedef enum _NDIS_QUIC_DIRECTION {
     NDIS_QUIC_DIRECTION_TRANSMIT, // An offload for the transmit path
     NDIS_QUIC_DIRECTION_RECEIVE,  // An offload for the receive path
-} NDIS_QUIC_DIRECTION_TYPE;
+} NDIS_QUIC_DIRECTION;
 
 typedef enum _NDIS_QUIC_CIPHER_TYPE {
     NDIS_QUIC_CIPHER_TYPE_AEAD_AES_128_GCM,
@@ -279,9 +294,11 @@ typedef enum _NDIS_QUIC_CIPHER_TYPE {
 } NDIS_QUIC_CIPHER_TYPE;
 
 typedef struct _NDIS_QUIC_CONNECTION {
-    NDIS_QUIC_OPERATION_TYPE Operation : 1;
-    NDIS_QUIC_DIRECTION_TYPE Direction : 1;
-    NDIS_QUIC_CIPHER_TYPE CipherType : 30;
+    uint32_t Operation  : 1;  // NDIS_QUIC_OPERATION
+    uint32_t Direction  : 1;  // NDIS_QUIC_DIRECTION
+    uint32_t KeyPhase   : 1;
+    uint32_t Reserved   : 13; // Must be set to 0. Don't read.
+    uint32_t CipherType : 16; // NDIS_QUIC_CIPHER_TYPE
     ADDRESS_FAMILY AddressFamily;
     uint16_t UdpPort;         // Destination port.
     uint8_t ConnectionIdLength;
