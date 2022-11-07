@@ -86,7 +86,7 @@ typedef struct _QEO_CONNECTION {
     uint32_t Operation  : 1;  // QEO_OPERATION
     uint32_t Direction  : 1;  // QEO_DIRECTION
     uint32_t KeyPhase   : 1;
-    uint32_t Reserved   : 13; // Must be set to 0. Don't read.
+    uint32_t RESERVED   : 13; // Must be set to 0. Don't read.
     uint32_t CipherType : 16; // QEO_CIPHER_TYPE
     ADDRESS_FAMILY AddressFamily;
     uint16_t UdpPort;
@@ -101,13 +101,13 @@ typedef struct _QEO_CONNECTION {
 
 ### QEO_CONNECTION Parameters
 
-#### IsAdd
+#### Operation
 
-Indicates whether the connection offload is being added (`1`) or removed (`0`).
+Indicates whether the connection offload is being added (`QEO_OPERATION_ADD`) or removed (`QEO_OPERATION_REMOVE`).
 
-#### IsTransmit
+#### Direction
 
-Indicates whether the offload is for connection transmit (`1`) or receive (`0`).
+Indicates whether the offload is for connection transmit (`QEO_DIRECTION_TRANSMIT`) or receive (`QEO_DIRECTION_RECEIVE`).
 
 #### KeyPhase
 
@@ -297,7 +297,7 @@ typedef struct _NDIS_QUIC_CONNECTION {
     uint32_t Operation  : 1;  // NDIS_QUIC_OPERATION
     uint32_t Direction  : 1;  // NDIS_QUIC_DIRECTION
     uint32_t KeyPhase   : 1;
-    uint32_t Reserved   : 13; // Must be set to 0. Don't read.
+    uint32_t RESERVED   : 13; // Must be set to 0. Don't read.
     uint32_t CipherType : 16; // NDIS_QUIC_CIPHER_TYPE
     ADDRESS_FAMILY AddressFamily;
     uint16_t UdpPort;         // Destination port.
