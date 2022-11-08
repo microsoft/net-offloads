@@ -75,6 +75,11 @@ typedef enum _QEO_DIRECTION {
     QEO_DIRECTION_RECEIVE,  // An offload for the receive path
 } QEO_DIRECTION;
 
+typedef enum _QEO_DECRYPT_FAILURE_ACTION {
+    QEO_DECRYPT_FAILURE_ACTION_DROP,     // Drop the packet on decryption failure
+    QEO_DECRYPT_FAILURE_ACTION_CONTINUE, // Continue and pass the packet up on decryption failure
+} QEO_DECRYPT_FAILURE_ACTION;
+
 typedef enum _QEO_CIPHER_TYPE {
     QEO_CIPHER_TYPE_AEAD_AES_128_GCM,
     QEO_CIPHER_TYPE_AEAD_AES_256_GCM,
@@ -83,11 +88,12 @@ typedef enum _QEO_CIPHER_TYPE {
 } QEO_CIPHER_TYPE;
 
 typedef struct _QEO_CONNECTION {
-    uint32_t Operation  : 1;  // QEO_OPERATION
-    uint32_t Direction  : 1;  // QEO_DIRECTION
-    uint32_t KeyPhase   : 1;
-    uint32_t RESERVED   : 13; // Must be set to 0. Don't read.
-    uint32_t CipherType : 16; // QEO_CIPHER_TYPE
+    uint32_t Operation            : 1;  // QEO_OPERATION
+    uint32_t Direction            : 1;  // QEO_DIRECTION
+    uint32_t DecryptFailureAction : 1;  // QEO_DECRYPT_FAILURE_ACTION
+    uint32_t KeyPhase             : 1;
+    uint32_t RESERVED             : 12; // Must be set to 0. Don't read.
+    uint32_t CipherType           : 16; // QEO_CIPHER_TYPE
     ADDRESS_FAMILY AddressFamily;
     uint16_t UdpPort;
     uint8_t ConnectionIdLength;
@@ -108,6 +114,10 @@ Indicates whether the connection offload is being added (`QEO_OPERATION_ADD`) or
 #### Direction
 
 Indicates whether the offload is for connection transmit (`QEO_DIRECTION_TRANSMIT`) or receive (`QEO_DIRECTION_RECEIVE`).
+
+#### DecryptFailureAction
+
+Indicates whether a packet that fails to decrypt should be dropped (`QEO_DECRYPT_FAILURE_ACTION_DROP`) or continued up the stack (`QEO_DECRYPT_FAILURE_ACTION_CONTINUE`).
 
 #### KeyPhase
 
@@ -286,6 +296,11 @@ typedef enum _NDIS_QUIC_DIRECTION {
     NDIS_QUIC_DIRECTION_RECEIVE,  // An offload for the receive path
 } NDIS_QUIC_DIRECTION;
 
+typedef enum _NDIS_QUIC_DECRYPT_FAILURE_ACTION {
+    NDIS_QUIC_DECRYPT_FAILURE_ACTION_DROP,     // Drop the packet on decryption failure
+    NDIS_QUIC_DECRYPT_FAILURE_ACTION_CONTINUE, // Continue and pass the packet up on decryption failure
+} NDIS_QUIC_DECRYPT_FAILURE_ACTION;
+
 typedef enum _NDIS_QUIC_CIPHER_TYPE {
     NDIS_QUIC_CIPHER_TYPE_AEAD_AES_128_GCM,
     NDIS_QUIC_CIPHER_TYPE_AEAD_AES_256_GCM,
@@ -294,11 +309,12 @@ typedef enum _NDIS_QUIC_CIPHER_TYPE {
 } NDIS_QUIC_CIPHER_TYPE;
 
 typedef struct _NDIS_QUIC_CONNECTION {
-    uint32_t Operation  : 1;  // NDIS_QUIC_OPERATION
-    uint32_t Direction  : 1;  // NDIS_QUIC_DIRECTION
-    uint32_t KeyPhase   : 1;
-    uint32_t RESERVED   : 13; // Must be set to 0. Don't read.
-    uint32_t CipherType : 16; // NDIS_QUIC_CIPHER_TYPE
+    uint32_t Operation            : 1;  // NDIS_QUIC_OPERATION
+    uint32_t Direction            : 1;  // NDIS_QUIC_DIRECTION
+    uint32_t DecryptFailureAction : 1;  // NDIS_QUIC_DECRYPT_FAILURE_ACTION
+    uint32_t KeyPhase             : 1;
+    uint32_t RESERVED             : 12; // Must be set to 0. Don't read.
+    uint32_t CipherType           : 16; // NDIS_QUIC_CIPHER_TYPE
     ADDRESS_FAMILY AddressFamily;
     uint16_t UdpPort;         // Destination port.
     uint8_t ConnectionIdLength;
