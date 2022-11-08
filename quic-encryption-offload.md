@@ -211,6 +211,8 @@ Value | Meaning
 
 If the `QEO_DECRYPTION_STATUS` ancillary data is not present then there was no offloaded connection that matched the QUIC packet(s).
 
+The payload of a decryption failure is not the original payload sent on the wire, but the result of the failed decryption.
+
 When QEO is used with URO, the ancillary data must correctly apply to all URO packets.
 So all coalesced QUIC packets indicated in a single URO must have the same decryption status to be indicated together.
 
