@@ -307,6 +307,7 @@ typedef struct _NDIS_QUIC_CONNECTION {
     uint8_t PayloadKey[32];   // Length determined by CipherType
     uint8_t HeaderKey[32];    // Length determined by CipherType
     uint8_t PayloadIv[12];
+    NDIS_STATUS Status;       // The result of trying to offload this connection.
 } NDIS_QUIC_CONNECTION;
 ```
 
@@ -314,6 +315,8 @@ The protocol driver later deletes the state for the connection with `OID_QUIC_CO
 The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID also contains a pointer to an `NDIS_QUIC_CONNECTION`, but only the `Port`, `Address Family`, `Address`, `ConnectionIdLength`, and `ConnectionId` fields are used.
 
 The `Operation` field of each `NDIS_QUIC_CONNECTION` in the OID `InformationBuffer` array determines whether that connection is being added or removed. A single OID can therefore both add and remove connections.
+
+The `Status` field of each `NDIS_QUIC_CONNECTION` is an output from the miniport to reflect the result of trying to offload the connection. This allows for individual connections to succeed or fail, without failing the entire OID.
 
 
 ## Sending Packets
