@@ -90,6 +90,7 @@ typedef struct _QEO_CONNECTION {
     uint32_t CipherType : 16; // QEO_CIPHER_TYPE
     ADDRESS_FAMILY AddressFamily;
     uint16_t UdpPort;
+    uint64_t NextPacketNumber; 
     uint8_t ConnectionIdLength;
     uint8_t Address[16];
     uint8_t ConnectionId[20]; // Limit to max of QUIC v1 & v2
@@ -129,6 +130,11 @@ Indicates the family (IPv4 or IPv6) of the IP address contained in the `Address`
 
 The destination UDP port of the connection, in network byte order.
 
+#### NextPacketNumber
+
+This contains expected full packet number for the next packet to be sent or recieved.
+For the `QEO_DIRECTION_RECEIVE` direction, this generally will be zero if no short header packets have been received yet.
+
 #### ConnectionIdLength
 
 The length of the QUIC connection ID in the `ConnectionId` field. May be zero.
@@ -143,15 +149,15 @@ The QUIC connection ID.
 
 #### PayloadKey
 
-The AEAD key (not traffic secret) for the QUIC packet payload encryption or decryption (depending on `IsTransmit`).
+The AEAD key (not traffic secret) for the QUIC packet payload encryption or decryption (depending on `Direction`).
 
 #### HeaderKey
 
-The AEAD key (not traffic secret) for the QUIC packet header encryption or decryption (depending on `IsTransmit`).
+The AEAD key (not traffic secret) for the QUIC packet header encryption or decryption (depending on `Direction`).
 
 #### PayloadIv
 
-The AEAD IV for the QUIC packet payload encryption or decryption (depending on `IsTransmit`).
+The AEAD IV for the QUIC packet payload encryption or decryption (depending on `Direction`).
 
 
 ### Return value
@@ -169,16 +175,15 @@ This leaves space for the tag to be added to the packet during encryption.
 The app passes ancillary data to `WSASendMsg` in the form of `QEO_TX_ANCILLARY_DATA`:
 
 ```C
-typedef struct _QEO_TX_ANCILLARY_DATA { 
-    uint64_t NextPacketNumber; 
+typedef struct _QEO_TX_ANCILLARY_DATA {
     uint8_t ConnectionIdLength;  
 } QEO_TX_ANCILLARY_DATA;
 ```
 
-`NextPacketNumber` is the uncompressed QUIC packet number of the packet (or of the first packet in the batch).
-This is passed down because the uncompressed packet number is an input for encryption and because the offload provider cannot read the packet number from the packet buffer without dealing with packet number compression.
-
 The `ConnectionIdLength` is passed to help the offload provider read the connection ID (which is used as a lookup key for the previously-established encryption parameters) from the packet buffer.
+
+The next packet number was previous configured in the `QEO_CONNECTION`, and is used as the starting place to fully expand all QUIC packet numbers, which is then used to encrypt the packets.
+The offload is stateful and keeps track of the most recent packet number of expand future sent packets.
 
 ## Receiving Packets
 
@@ -203,6 +208,8 @@ If the `QEO_DECRYPTION_STATUS` ancillary data is not present then there was no o
 
 When QEO is used with URO, the ancillary data must correctly apply to all URO packets.
 So all coalesced QUIC packets indicated in a single URO must have the same decryption status to be indicated together.
+
+The offload is stateful and keeps track of the most recent packet number of expand future sent packets.
 
 
 # TCPIP
@@ -301,6 +308,7 @@ typedef struct _NDIS_QUIC_CONNECTION {
     uint32_t CipherType : 16; // NDIS_QUIC_CIPHER_TYPE
     ADDRESS_FAMILY AddressFamily;
     uint16_t UdpPort;         // Destination port.
+    uint64_t NextPacketNumber; 
     uint8_t ConnectionIdLength;
     uint8_t Address[16];      // Destination IP address.
     uint8_t ConnectionId[20]; // QUIC v1 and v2 max CID size
@@ -322,7 +330,6 @@ The NDIS protocol driver posts packets for QEO with OOB data (which can be queri
 
 ```C
 typedef struct _NDIS_QUIC_ENCRYPTION_NET_BUFFER_LIST_INFO {
-    uint64_t NextPacketNumber;
     uint8_t ConnectionIdLength;
 } NDIS_QUIC_ENCRYPTION_NET_BUFFER_LIST_INFO;
 ```
@@ -342,8 +349,7 @@ Then, the miniport computes the UDP checksum (if the UDP header checksum field i
 
 When the miniport receives a packet from the network, if the packet matches a connection that has already been set up with `OID_QUIC_CONNECTION_ENCRYPTION`, the miniport decrypts the packet (using the process outlined in the Appendix).
 The miniport then indicates the packet with OOB data in the format `NDIS_QUIC_ENCRYPTION_RECEIVE_NET_BUFFER_LIST_INFO`:
-
-> **TODO** Should we use the same OOB "Id" as for TX, or a different one?
+The OOB data uses the same `_Id` as the transmit path.
 
 ```C
 typedef enum _NDIS_QUIC_DECRYPTION_STATUS {
