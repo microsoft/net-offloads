@@ -318,6 +318,8 @@ The `Operation` field of each `NDIS_QUIC_CONNECTION` in the OID `InformationBuff
 
 The `Status` field of each `NDIS_QUIC_CONNECTION` is an output from the miniport to reflect the result of trying to offload the connection. This allows for individual connections to succeed or fail, without failing the entire OID.
 
+The OID RequestType must be NdisRequestMethod to ensure input/output support to get the `Status` field on return.
+
 
 ## Sending Packets
 
