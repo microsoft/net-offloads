@@ -271,6 +271,7 @@ TCPIP is expected to re-plumb any offloaded connections that still can be offloa
 ## Establishing Encryption Parameters for a Connection
 
 Before the NDIS protocol driver posts any packets for a QEO connection, it first establishes encryption parameters for the connection by issuing the Direct OID `OID_QUIC_CONNECTION_ENCRYPTION`.
+The OID RequestType must be NdisRequestMethod to ensure input/output support.
 The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains an array of type `NDIS_QUIC_CONNECTION`.
 The `InformationBufferLength` field contains the length of the array in bytes.
 The `Revision` field in the `NDIS_OBJECT_HEADER` of the `NDIS_OID_REQUEST` is set to 0.
@@ -311,14 +312,14 @@ typedef struct _NDIS_QUIC_CONNECTION {
 } NDIS_QUIC_CONNECTION;
 ```
 
+The return status of the OID must be `NDIS_STATUS_SUCCESS` even if some of the offloaded connections might have failed.
+
 The protocol driver later deletes the state for the connection with `OID_QUIC_CONNECTION_ENCRYPTION`.
 The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID also contains a pointer to an `NDIS_QUIC_CONNECTION`, but only the `Port`, `Address Family`, `Address`, `ConnectionIdLength`, and `ConnectionId` fields are used.
 
 The `Operation` field of each `NDIS_QUIC_CONNECTION` in the OID `InformationBuffer` array determines whether that connection is being added or removed. A single OID can therefore both add and remove connections.
 
 The `Status` field of each `NDIS_QUIC_CONNECTION` is an output from the miniport to reflect the result of trying to offload the connection. This allows for individual connections to succeed or fail, without failing the entire OID.
-
-The OID RequestType must be NdisRequestMethod to ensure input/output support to get the `Status` field on return.
 
 
 ## Sending Packets
