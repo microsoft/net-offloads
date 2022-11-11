@@ -229,6 +229,7 @@ To simplify the interface at the socket layer, TCPIP will support the SW fallbac
 To support SW fallback, the following will have to be added to TCPIP:
 
 - All offload state must be mirrored in TCPIP.
+- TCPIP must keep the packet number state up to date so long as the connection is offloaded, by inspecting packets numbers sent and received on the datapath.
 - Support capabilities can only be advertised for features that can be implemented in software. Any missing SW features (e.g. ChaCha20-Poly1305) cannot be advertised, even if the HW supports it.
 - In addition to the offloaded connection state passed by the app, TCPIP must also track if the state has been successfully offloaded to the NIC.
 - When an app offloads a connection, it should first go into the local mirror (synchronously) and then be offloaded to the NIC (likely async).
