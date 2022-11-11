@@ -419,6 +419,49 @@ The steps are detailed [here](https://www.rfc-editor.org/rfc/rfc9001#name-header
 
 Decryption is the reverse process: the header and then the payload is decrypted.
 
+## Psuedocode for Receive Path
+
+```c++
+enum Action {
+    Continue, // Pass packet up
+    Drop
+};
+
+Action ProcessUdpPacket(_Inout_ Packet* packet) {
+  if (!packet->IsQuicShortHeader()) return Continue; // Not QUIC short header packet
+  
+  uint8_t CidLength = ConnectionIdLengthTable.Lookup(packet->DestinationIpAddress(), packet->DestinationUdpPort());
+  if (CidLength == INVALID_CID) return Continue; // No match
+  
+  QeoConnection* Connection = QeoRxTable.Lookup(
+      packet->DestinationIpAddress(), packet->DestinationUdpPort(),
+      packet->QuicCidStartPtr(), CidLength, packet->QuicKeyPhase());
+  if (!Connection) return Continue; // No match
+  
+  Action action = Connection->TryDecryptPacket(packet); // Updates the contents of packet with result of decryption.
+  
+  Connection->Release(); // Release ref on connection, which may clean it up if another thread removed the offload.
+  
+  return action;
+}
+
+Action QeoConnection::TryDecryptPacket(_Inout_ Packet* packet) {
+  packet->DecryptPacketHeader(this->KeyMaterial);
+  
+  uint64_t PacketNumber = packet->DecodePacketNumber(this->NextPacketNumber);
+  
+  if (!this->TryDecryptPacketPayload(this->KeyMaterial, PacketNumber)) {
+      Packet->QuicDecryptionResult == DecryptFailure;
+      return this->DecryptFailureAction;
+  }
+  
+  Packet->QuicDecryptionResult == DecryptSuccess;
+  if (PacketNumber > this->NextPacketNumber) this->NextPacketNumber = PacketNumber;
+  
+  return Continue;  
+}
+```
+
 ## UDP Segmentation Offload (USO)
 
 > **Note**
