@@ -389,6 +389,49 @@ typedef struct _NDIS_QUIC_ENCRYPTION_RECEIVE_NET_BUFFER_LIST_INFO {
 ```
 
 `NdisQuicDecryptionFailed` is set as the `DecryptionStatus` if a connection record was found matching the packet but packet decryption failed.
+
+### Psuedocode
+
+```c++
+enum Action {
+    Continue, // Pass packet up
+    Drop
+};
+
+Action ProcessUdpPacket(_Inout_ Packet* packet) {
+    if (!packet->IsQuicShortHeader()) return Continue; // Not QUIC short header packet
+  
+    uint8_t CidLength = ConnectionIdLengthTable.Lookup(packet->DestinationIpAddress(), packet->DestinationUdpPort());
+    if (CidLength == INVALID_CID) return Continue; // No match
+  
+    QeoConnection* Connection = QeoRxTable.Lookup(
+        packet->DestinationIpAddress(), packet->DestinationUdpPort(),
+        packet->QuicCidStartPtr(), CidLength, packet->QuicKeyPhase());
+    if (!Connection) return Continue; // No match
+  
+    Action action = Connection->TryDecryptPacket(packet); // Updates the contents of packet with result of decryption.
+  
+    Connection->Release(); // Release ref on connection, which may clean it up if another thread removed the offload.
+  
+    return action;
+}
+
+Action QeoConnection::TryDecryptPacket(_Inout_ Packet* packet) {
+    packet->DecryptPacketHeader(this->KeyMaterial);
+  
+    uint64_t PacketNumber = packet->DecodePacketNumber(this->NextPacketNumber);
+  
+    if (!this->TryDecryptPacketPayload(this->KeyMaterial, PacketNumber)) {
+        Packet->QuicDecryptionResult == DecryptFailure;
+        return this->DecryptFailureAction;
+    }
+  
+    Packet->QuicDecryptionResult == DecryptSuccess;
+    if (PacketNumber > this->NextPacketNumber) this->NextPacketNumber = PacketNumber;
+  
+    return Continue;  
+}
+```
  
 # Appendix
 
