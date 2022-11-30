@@ -4,6 +4,8 @@ This repository is for defining various QUIC hardware offload specifications. Wh
 be published at a more standard location (TBD).
 
 - [QUIC Encryption Offload](quic-encryption-offload.md) - Offloading QUIC short header packet encryption and decryption.
+- [UDP Reassembly Offload](udp-reassembly-offload.md) - Offloading UDP datagram coalescing and reassembly.
+- [Time based Packet Transmission Offload](time-based-packet-transmission-offload.md) - Offloading per packet transmission timestamps.
 
 ## Contributing
 
@@ -21,8 +23,8 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 
 ## Trademarks
 
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft 
-trademarks or logos is subject to and must follow 
+This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft
+trademarks or logos is subject to and must follow
 [Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
 Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
 Any use of third-party trademarks or logos are subject to those third-party's policies.
