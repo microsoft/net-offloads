@@ -3,7 +3,7 @@
 > **Note**
 > This document is a work in progress.
 
-This document describes a proposed offload called QEO which offloads the encryption (and decryption) of QUIC short header packets.
+This document describes an offload called QEO which offloads the encryption (and decryption) of QUIC short header packets.
 The primary goal is an NDIS offload to the miniport for hardware support, but the OS will provide software fallback when hardware support is not available.
 The perspective is mainly that of MsQuic, but the offload will be usable by other QUIC implementations.
 
@@ -18,11 +18,9 @@ This constitutes the largest CPU bottleneck in the scenario.
 - [NDIS](#ndis)
 - [Appendix](#appendix)
 
-
 # Winsock
 
 The proposed Winsock API for QEO is as follows.
-
 
 ## Checking for QEO Capability
 
@@ -58,7 +56,6 @@ Note that the returned capabilities do not necessarily indicate that a network i
 
 Future OS versions may introduce new flags.
 Therefore, applications should silently ignore unrecognized support flags.
-
 
 ## Establishing Encryption Parameters for a Connection
 
@@ -96,7 +93,7 @@ typedef struct _QEO_CONNECTION {
     uint32_t CipherType           : 16; // QEO_CIPHER_TYPE
     ADDRESS_FAMILY AddressFamily;
     uint16_t UdpPort;
-    uint64_t NextPacketNumber; 
+    uint64_t NextPacketNumber;
     uint8_t ConnectionIdLength;
     uint8_t Address[16];
     uint8_t ConnectionId[20]; // Limit to max of QUIC v1 & v2
@@ -169,12 +166,10 @@ The AEAD key (not traffic secret) for the QUIC packet header encryption or decry
 
 The AEAD IV for the QUIC packet payload encryption or decryption (depending on `Direction`).
 
-
 ### Return value
 
 If no error occurs, `setsockopt` returns zero.
 If QEO or the specific `CipherType` is not supported by the operating system, then the `setsockopt` call will fail with status `WSAEINVAL`.
-
 
 ## Sending Packets
 
@@ -186,7 +181,7 @@ The app passes ancillary data to `WSASendMsg` in the form of `QEO_TX_ANCILLARY_D
 
 ```C
 typedef struct _QEO_TX_ANCILLARY_DATA {
-    uint8_t ConnectionIdLength;  
+    uint8_t ConnectionIdLength;
 } QEO_TX_ANCILLARY_DATA;
 ```
 
@@ -224,7 +219,6 @@ So all coalesced QUIC packets indicated in a single URO must have the same decry
 
 The offload is stateful and keeps track of the most recent packet number of expand future sent packets.
 
-
 # TCPIP
 
 This section describes necessary updates in the Windows network stack (mostly in `tcpip.sys`) to support QEO.
@@ -255,11 +249,9 @@ Some other requirements:
 - When doing software USO combined with hardware QEO, TCPIP must not compute checksums, since the payload will change.
 - Loopback support must be handled as well.
 
-
 # NDIS
 
 The NDIS interface for QEO is used for communication between TCPIP (which posts NBLs containing unencrypted QUIC short header packets) and the NDIS miniport driver (which encrypts and sends the QUIC packets).
-
 
 ## Configuring and Advertising QEO Capability
 
@@ -287,7 +279,6 @@ NDIS handles this OID and does not pass it down to the miniport driver.
 
 Every time the miniport indicates an updated configuration via a new status indication, it is considered a reset of all previously offloaded connections.
 TCPIP is expected to re-plumb any offloaded connections that still can be offloaded with the new configuration.
-
 
 ## Establishing Encryption Parameters for a Connection
 
@@ -329,7 +320,7 @@ typedef struct _NDIS_QUIC_CONNECTION {
     uint32_t CipherType           : 16; // NDIS_QUIC_CIPHER_TYPE
     ADDRESS_FAMILY AddressFamily;
     uint16_t UdpPort;         // Destination port.
-    uint64_t NextPacketNumber; 
+    uint64_t NextPacketNumber;
     uint8_t ConnectionIdLength;
     uint8_t Address[16];      // Destination IP address.
     uint8_t ConnectionId[20]; // QUIC v1 and v2 max CID size
@@ -348,7 +339,6 @@ The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID also contai
 The `Operation` field of each `NDIS_QUIC_CONNECTION` in the OID `InformationBuffer` array determines whether that connection is being added or removed. A single OID can therefore both add and remove connections.
 
 The `Status` field of each `NDIS_QUIC_CONNECTION` is an output from the miniport to reflect the result of trying to offload the connection. This allows for individual connections to succeed or fail, without failing the entire OID.
-
 
 ## Sending Packets
 
@@ -369,7 +359,6 @@ Then, the miniport computes the UDP checksum (if the UDP header checksum field i
 
 > **Note**
 > If both USO and QEO are in use, then a posted `NET_BUFFER_LIST` will contain multiple unencrypted QUIC packets. The `MSS` field of `NDIS_UDP_SEGMENTATION_OFFLOAD_NET_BUFFER_LIST_INFO` will indicate the size of each *unencrypted* QUIC packet (i.e., the size of the UDP payload before the AEAD tag is added). The miniport must encrypt each packet in the `NET_BUFFER_LIST`, adding the AEAD tag to each, before continuing with USO processing (such as packet checksum computation). See Appendix for more information on USO.
-
 
 ## Receiving Packets
 
@@ -400,39 +389,39 @@ enum Action {
 
 Action ProcessUdpPacket(_Inout_ Packet* packet) {
     if (!packet->IsQuicShortHeader()) return Continue; // Not QUIC short header packet
-  
+
     uint8_t CidLength = ConnectionIdLengthTable.Lookup(packet->DestinationIpAddress(), packet->DestinationUdpPort());
     if (CidLength == INVALID_CID) return Continue; // No match
-  
+
     QeoConnection* Connection = QeoRxTable.Lookup(
         packet->DestinationIpAddress(), packet->DestinationUdpPort(),
         packet->QuicCidStartPtr(), CidLength, packet->QuicKeyPhase());
     if (!Connection) return Continue; // No match
-  
+
     Action action = Connection->TryDecryptPacket(packet); // Updates the contents of packet with result of decryption.
-  
+
     Connection->Release(); // Release ref on connection, which may clean it up if another thread removed the offload.
-  
+
     return action;
 }
 
 Action QeoConnection::TryDecryptPacket(_Inout_ Packet* packet) {
     packet->DecryptPacketHeader(this->KeyMaterial);
-  
+
     uint64_t PacketNumber = packet->DecodePacketNumber(this->NextPacketNumber);
-  
+
     if (!this->TryDecryptPacketPayload(this->KeyMaterial, PacketNumber)) {
         Packet->QuicDecryptionResult == DecryptFailure;
         return this->DecryptFailureAction;
     }
-  
+
     Packet->QuicDecryptionResult == DecryptSuccess;
     if (PacketNumber > this->NextPacketNumber) this->NextPacketNumber = PacketNumber;
-  
-    return Continue;  
+
+    return Continue;
 }
 ```
- 
+
 # Appendix
 
 ## QUIC Encryption
@@ -497,4 +486,3 @@ The general API in Linux is:
 - On key rollover, the app plumbs the new key.
 
 If a hardware offload is supported by the network interface, then it is used; otherwise the kernel takes care of the encryption and segmentation for usermode.
-
