@@ -7,18 +7,17 @@ This document describes an offload called TPTO which offloads per packet transmi
 These timestamps can be used to schedule packets to be sent at a future time, which can be leveraged to more effectively pace sends at a rate not otherwise achievable in the OS.
 Because of the time-fidelity requirements of this feature, there will not be software fallback in the OS.
 
-## Table of Context
+## Table of Contents
 
 - [Time based Packet Transmission Offload (TPTO)](#time-based-packet-transmission-offload-tpto)
-  - [Table of Context](#table-of-context)
+  - [Table of Contents](#table-of-contents)
 - [Winsock](#winsock)
-  - [Checking for TPTO Capability](#checking-for-tpto-capability)
-  - [Enable TPTO](#enable-tpto)
+  - [set/get TPTO capability](#setget-tpto-capability)
+  - [Scheduler](#scheduler)
   - [Sending Packets](#sending-packets)
 - [TCPIP](#tcpip)
-  - [Queue](#queue)
-    - [Unknown](#unknown)
 - [NDIS](#ndis)
+  - [Clock synchronization](#clock-synchronization)
 - [Appendix](#appendix)
   - [Linix](#linix)
 
@@ -26,20 +25,44 @@ Because of the time-fidelity requirements of this feature, there will not be sof
 
 The proposed Winsock API for TPTO is as follows.
 
-## Checking for TPTO Capability
-
-An app first checks for TPTO support by querying the `SO_TPTO_SUPPORT` socket option.  
-The option value is a `TPTO_SUPPORT_FLAGS` enum with flags describing the supported capabilities:
-
+## set/get TPTO capability
+An app first check for TPTO support by querying the `SO_TXTIME` socket option.  
+`SOCKET_ERROR` indicate `setsockopt()` or `getsockopt()` don't support `SO_TXTIME` feature.   and then `WSAGetLastError()` returns `WSAENOPROTOOPT`
 ```C
-typedef enum _TPTO_SUPPORT_FLAGS {
-    TPTO_SUPPORT_FLAG_NONE          = 0x00,
-    TPTO_SUPPORT_FLAG_SUPPORTED     = 0x01,
-} TPTO_SUPPORT_FLAGS;
+int optVal = 1; // enable TPTO
+int optLen = sizeof(int);
+if(setsockopt(sock, SOL_SOCKET, SO_TXTIME, (char*)&optVal, optLen) == SOCKET_ERROR) {
+  if (WSAGetLastError() == WSAENOPROTOOPT) {
+    // SO_TXTIME is not supported
+  } else {
+    // other error
+  }
+}
 ```
 
-## Enable TPTO
-setsockopt with SO_TXTIME
+## Scheduler
+An app should be able to specify scheduler by `SO_TXTIME_SCHED`. Default should be ETF
+- ETF (Earliest Txtime First)
+- TAPRIO (Time-Aware Priority Scheduler)
+
+```C
+typedef enum _SO_TXTIME_SCHED_FLAGS {
+  SO_TXTIME_SCHED_ETF       = 0x00
+  SO_TXTIME_SCHED_TAPRIO    = 0x01
+} SO_TXTIME_SCHED_FLAGS;
+```
+
+```C
+int optVal = SO_TXTIME_SCHED_ETF;
+int optLen = sizeof(int);
+if(setsockopt(sock, SOL_SOCKET, SO_TXTIME_SCHED, (char*)&optVal, optLen) == SOCKET_ERROR) {
+  if (WSAGetLastError() == WSAENOPROTOOPT) {
+    // the scheduling method is not supported
+  } else {
+    // other error
+  }
+}
+```
 
 ## Sending Packets
 The app calls `WSASendMsg`.   
@@ -47,18 +70,12 @@ The app passes ancillary data in the form of `TPTO_ANCILLARY_DATA`
 ```C
 typedef struct _TPTO_ANCILLARY_DATA {
     uint64_t TxTime;
-    uint64_t ClockId;
     uint8_t  DropIfRate
 } TPTO_ANCILLARY_DATA;
 ```
 
 - TxTime to indicate when the associated packet is sent
-- ClockId to indicate which of several system clocks to be used
 - DropIfRate to indicate whether to drop packet if it cannot be transmitted by the given deadline
-
-- sendmsg with control-message header of type SCM_DROP_IF_LATE to simply drop a packet
-- SCM_CLOCKID which clock should be used for packet timing, default is CLOCK_MONOTONIC
-
 
 > **TODO**
 
@@ -66,30 +83,15 @@ typedef struct _TPTO_ANCILLARY_DATA {
 
 This section describes necessary updates in the Windows network stack to support TPTO.
 
-## Queue
-- qdisc
-  - ETF (earliest txtime first) qdisc
-  - TAPRIO (time-aware priority scheduler) qdisc?
-- Enqueue
-  - Drop if a packet scheduled to be sent in the past
-  - Drop if ClockId associated with the packet doesn't match
-- Dequeue
-  - Drop if a packet missed its deadline
-- ClockId
-- Sorting
-  - Software: rbtree to be always sorted
-  - Hardware: just enqueue and sorted on hardware?
-- HW offload
-  - implicitly use PHC (Physical Hardware Clock) on interface
-
-### Unknown
-- This layer?
+TCPIP doesn't expect SW fallback. If hardware state changed dynamically, TCPIP just sends without ancillary data.
 
 > **TODO**
 
 # NDIS
 
 The NDIS interface for TPTO is used for communication between TCPIP and the NDIS miniport driver.
+
+NDIS to use parameter bellow to enable the feature.
 
 ```C
 typedef struct _NDIS_OFFLOAD_PARAMETERS
@@ -100,28 +102,30 @@ typedef struct _NDIS_OFFLOAD_PARAMETERS
     {
         UCHAR               IPv4;
         UCHAR               IPv6;
-    } Tpto;
+    } Txtime;
 #endif // (NDIS_SUPPORT_NDIS68X)
 } NDIS_OFFLOAD_PARAMETERS, *PNDIS_OFFLOAD_PARAMETERS;
 
 
 #if (NDIS_SUPPORT_NDIS68X)
 
-#define NDIS_OFFLOAD_PARAMETERS_TPTO_ENABLED        1
-#define NDIS_OFFLOAD_PARAMETERS_TPTO_DISABLED       2
+#define NDIS_OFFLOAD_PARAMETERS_TXTIME_ENABLED        1
+#define NDIS_OFFLOAD_PARAMETERS_TXTIME_DISABLED       2
 
 #endif // (NDIS_SUPPORT_NDIS68X)
 ```
 
-
 ```C
-typedef enum _NDIS_TPTO_SUPPORT_FLAGS {
-    NDIS_TPTO_SUPPORT_FLAG_NONE          = 0x00,
-    NDIS_TPTO_SUPPORT_FLAG_SUPPORTED     = 0x01,
+typedef enum _NDIS_TXTIME_SUPPORT_FLAGS {
+    NDIS_TXTIME_SUPPORT_FLAG_NONE       = 0x00,
+    NDIS_TXTIME_SUPPORT_SCHED_ETF       = 0x01,
+    NDIS_TXTIME_SUPPORT_SCHED_TAPRIO    = 0x02,
 }
 
 ```
 
+## Clock synchronization
+System clock and PHC need to be synchronized to scheduler to transmit packet as expected
 
 
 > **TODO**
