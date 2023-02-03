@@ -27,6 +27,25 @@ This section describes necessary updates in the Windows network stack to support
 
 The NDIS interface for URO is used for communication between TCPIP and the NDIS miniport driver.
 
+## Rules
+
+URO can only be attempted on a batch of packets that meet all the following criteria:
+
+- Unicast only (no broadcast or multicast)
+- 5-tuple matches
+- Payload length is identical for all datagrams
+- ECN, DF bits must match on all packets (IPv4)
+- NextHeader must be UDP (IPv6)
+- The total length of the Single Coalesced Unit (SCU) must not exceed IP max length
+- No more than 255 NBLs per SCU
+
+The resulting SCU must have a single IP header first, then the UDP header, followed by just the UDP payload for all coalesced datagrams concatenated together. 
+```
+--------------------------------------------------------------------------------
+| IP Header | UDP Header | UDP Payload 1 | UDP Payload 2 | ... | UDP Payload N |
+--------------------------------------------------------------------------------
+```
+
 > **TODO**
 
 # Appendix
