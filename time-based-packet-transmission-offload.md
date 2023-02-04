@@ -11,15 +11,44 @@ Because of the time-fidelity requirements of this feature, there will not be sof
 
 - [Time based Packet Transmission Offload (TPTO)](#time-based-packet-transmission-offload-tpto)
   - [Table of Contents](#table-of-contents)
+- [Prerequisite](#prerequisite)
 - [Winsock](#winsock)
   - [set/get TPTO capability](#setget-tpto-capability)
   - [Scheduler](#scheduler)
   - [Sending Packets](#sending-packets)
 - [TCPIP](#tcpip)
 - [NDIS](#ndis)
-  - [Clock synchronization](#clock-synchronization)
 - [Appendix](#appendix)
   - [Linix](#linix)
+
+# Prerequisite
+
+The NIC (and its driver) need to support PTP (IEEE 1588-2008 and/or 1588-2019) for precise timestamping to System clock and PHC clock need to be synchronized.  
+Code below is to check the such capability
+```C
+INTERFACE_TIMESTAMP_CAPABILITIES timestampCapabilities;
+SupportedTimestampType supportedType = TimestampTypeNone;
+
+result = GetInterfaceActiveTimestampCapabilities(
+              &interfaceLuid,
+              &timestampCapabilities);
+
+if (!timestampCapabilities.SupportsCrossTimestamp) {
+  // Cannot use TPTO
+}
+```
+
+It's up to app to synchronize system and PHC clock.  
+The way to get timestamp information is as bellow.
+```C
+INTERFACE_HARDWARE_CROSSTIMESTAMP crossTimestamp;
+
+result = CaptureInterfaceHardwareCrossTimestamp(
+              &interfaceLuid,
+              &crossTimestamp);
+
+// Up to app. Use crossTimestamp to synchronize clocks
+```
 
 # Winsock
 
@@ -124,13 +153,12 @@ typedef enum _NDIS_TXTIME_SUPPORT_FLAGS {
 
 ```
 
-## Clock synchronization
-System clock and PHC need to be synchronized to scheduler to transmit packet as expected
-
 
 > **TODO**
 
 # Appendix
+
+[Packet timestamping](https://learn.microsoft.com/en-us/windows/win32/iphlp/packet-timestamping)
 
 ## Linix
 
