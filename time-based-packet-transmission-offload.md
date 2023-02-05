@@ -18,6 +18,7 @@ Because of the time-fidelity requirements of this feature, there will not be sof
   - [Sending Packets](#sending-packets)
 - [TCPIP](#tcpip)
 - [NDIS](#ndis)
+- [Registry value based setting](#registry-value-based-setting)
 - [Appendix](#appendix)
   - [Linix](#linix)
 
@@ -120,7 +121,24 @@ TCPIP doesn't expect SW fallback. If hardware state changed dynamically, TCPIP j
 
 The NDIS interface for TPTO is used for communication between TCPIP and the NDIS miniport driver.
 
-NDIS to use parameter bellow to enable the feature.
+`NDIS_OFFLOAD` structure need to have new member 
+```C
+typedef struct _NDIS_OFFLOAD {
+  ...
+  NDIS_TCP_IP_TXTIME_OFFLOAD TxTime;
+} NDIS_OFFLOAD, *PNDIS_OFFLOAD;
+
+typedef struct _NDIS_TCP_IP_TXTIME_OFFLOAD {
+  struct {
+    BOOLEAN Enabled;
+  } IPv4;
+  struct {
+    BOOLEAN Enabled;
+  } IPv6;
+} NDIS_TCP_IP_TXTIME_OFFLOAD, *PNDIS_TCP_IP_TXTIME_OFFLOAD;
+```
+
+When a miniport driver receives an `OID_TCP_OFFLOAD_PARAMETERS` set request, it must use the contents of the `NDIS_OFFLOAD_PARAMETERS` structure
 
 ```C
 typedef struct _NDIS_OFFLOAD_PARAMETERS
@@ -153,6 +171,29 @@ typedef enum _NDIS_TXTIME_SUPPORT_FLAGS {
 
 ```
 
+To obtain the `NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO` structure, a driver should call the `NET_BUFFER_LIST_INFO` macro with an _Id of `TcpIpTxTimeNetBufferListInfo`
+```C
+typedef struct _NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO {
+  struct {
+    ULONG IsIPv4 : 1;
+    ULONG IsIPv6 : 1;
+    ULONG IsTcp : 1;
+    ULONG IsUdp : 1;
+    ULONG TxTime : 64;
+    ULONG DropIfRate : 1;
+  } Transmit;
+  struct {
+    ULONG TcpTxTimeFailed : 1;
+    ULONG UdpTxTimeFailed : 1;
+  } TransmitComplete;
+  # Transmit only?
+} NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO, *PNDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO;
+```
+
+> **TODO**
+
+
+# Registry value based setting
 
 > **TODO**
 
