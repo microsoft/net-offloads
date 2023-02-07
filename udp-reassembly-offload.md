@@ -33,7 +33,7 @@ URO can only be attempted on a batch of packets that meet **all** the following 
 
 - 5-tuple matches
 - Payload length is identical for all datagrams, except the last datagram which may be less
-- The checksums on pre-coalesced packets must match.
+- The checksums on pre-coalesced packets must be correct.
 - ECN, DF bits must match on all packets (IPv4)
 - NextHeader must be UDP (IPv6)
 - The total length of the Single Coalesced Unit (SCU) must not exceed IP max length
