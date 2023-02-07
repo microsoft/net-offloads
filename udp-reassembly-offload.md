@@ -29,15 +29,14 @@ The NDIS interface for URO is used for communication between TCPIP and the NDIS 
 
 ## Rules
 
-URO can only be attempted on a batch of packets that meet all the following criteria:
+URO can only be attempted on a batch of packets that meet **all** the following criteria:
 
-- Unicast only (no broadcast or multicast)
 - 5-tuple matches
-- Payload length is identical for all datagrams
+- Payload length is identical for all datagrams, except the last datagram which may be less
+- The checksums on pre-coalesced packets must be correct.
 - ECN, DF bits must match on all packets (IPv4)
 - NextHeader must be UDP (IPv6)
 - The total length of the Single Coalesced Unit (SCU) must not exceed IP max length
-- No more than 255 NBLs per SCU
 
 The resulting SCU must have a single IP header first, then the UDP header, followed by just the UDP payload for all coalesced datagrams concatenated together. 
 ```
@@ -45,8 +44,10 @@ The resulting SCU must have a single IP header first, then the UDP header, follo
 | IP Header | UDP Header | UDP Payload 1 | UDP Payload 2 | ... | UDP Payload N |
 --------------------------------------------------------------------------------
 ```
+Fig. 1 - A Single Coalesced Unit.
 
-> **TODO**
+
+## Headers
 
 ntddndis.h
 ```
@@ -79,10 +80,10 @@ typedef struct _NDIS_UDP_RECV_OFFLOAD
 ...
 
 #if (NDIS_SUPPORT_NDIS690)
-  //
-  // UDP Receive Offload
-  //
-  NDIS_UDP_RECV_OFFLOAD        UdpRecvOffload;
+    //
+    // UDP Receive Offload
+    //
+    NDIS_UDP_RECV_OFFLOAD        UdpRecvOffload;
 #endif
 
 } NDIS_OFFLOAD, *PNDIS_OFFLOAD;
@@ -90,8 +91,6 @@ typedef struct _NDIS_UDP_RECV_OFFLOAD
 
 nbluro.w
 ```
-
-
 #if NDIS_SUPPORT_NDIS690
 
 //
@@ -104,7 +103,7 @@ typedef struct _NDIS_UDP_RSC_OFFLOAD_NET_BUFFER_LIST_INFO
         struct
         {
             ULONG SegCount: 16;
-            ULONG SegSize: 16;
+            ULONG SegSize:  16;
             ULONG Reserved: 32;
         } Receive;
 
