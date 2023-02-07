@@ -44,8 +44,7 @@ ntddndis.h
 #if (NDIS_SUPPORT_NDIS690)
     struct
     {
-        UCHAR               IPv4;
-        UCHAR               IPv6;
+        UCHAR               Enabled;
     } UdpReceiveOffload;
 #endif // (NDIS_SUPPORT_NDIS690)
 } NDIS_OFFLOAD_PARAMETERS, *PNDIS_OFFLOAD_PARAMETERS;
@@ -55,14 +54,7 @@ ntddndis.h
 #if (NDIS_SUPPORT_NDIS690)
 typedef struct _NDIS_UDP_RECV_OFFLOAD
 {
-    struct
-    {
-        BOOLEAN Enabled;
-    } IPv4;
-    struct
-    {
-        BOOLEAN Enabled;
-    } IPv6;
+    BOOLEAN Enabled;
 } NDIS_UDP_RECV_OFFLOAD, *PNDIS_UDP_RECV_OFFLOAD;
 #endif
 ...
@@ -94,8 +86,7 @@ typedef struct _NDIS_UDP_RSC_OFFLOAD_NET_BUFFER_LIST_INFO
         {
             ULONG SegCount: 16;
             ULONG SegSize: 16;
-            ULONG IPVersion: 1;
-            ULONG Reserved: 31;
+            ULONG Reserved: 32;
         } Receive;
 
         PVOID Value;
