@@ -20,7 +20,7 @@ Because of the time-fidelity requirements of this feature, there will not be sof
 - [NDIS](#ndis)
 - [Registry value based setting](#registry-value-based-setting)
 - [Appendix](#appendix)
-  - [Linix](#linix)
+  - [Linux](#linux)
 
 # Prerequisite
 
@@ -181,14 +181,8 @@ typedef enum _NDIS_TXTIME_SUPPORT_FLAGS {
 To obtain the `NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO` structure, a driver should call the `NET_BUFFER_LIST_INFO` macro with an _Id of `TcpIpTxTimeNetBufferListInfo`
 ```C
 typedef struct _NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO {
-  struct {
-    ULONG IsIPv4 : 1;
-    ULONG IsIPv6 : 1;
-    ULONG IsTcp : 1;
-    ULONG IsUdp : 1;
-    ULONGLONG TxTime : 64;
-    ULONGLONG TimeDelta : 64;
-  } Transmit;
+  ULONGLONG TxTime : 64;
+  ULONGLONG TimeDelta : 64;
 } NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO, *PNDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO;
 ```
 
@@ -203,6 +197,6 @@ typedef struct _NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO {
 
 [Packet timestamping](https://learn.microsoft.com/en-us/windows/win32/iphlp/packet-timestamping)
 
-## Linix
+## Linux
 
 This [article](https://lwn.net/Articles/748744/) describes the equivalent interface that was added to Linux.
