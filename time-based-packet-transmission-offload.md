@@ -71,6 +71,8 @@ if(setsockopt(sock, SOL_SOCKET, SO_TXTIME, (char*)&optVal, optLen) == SOCKET_ERR
 ```
 
 ## Scheduler
+> Discussion: which component care this queuing/sorting/scheduling https://github.com/microsoft/quic-offloads/issues/50  
+
 An app should be able to specify scheduler by `SO_TXTIME_SCHED`. Default should be ETF
 - ETF (Earliest Txtime First)
 - TAPRIO (Time-Aware Priority Scheduler)
@@ -96,16 +98,21 @@ if(setsockopt(sock, SOL_SOCKET, SO_TXTIME_SCHED, (char*)&optVal, optLen) == SOCK
 
 ## Sending Packets
 The app calls `WSASendMsg`.   
-The app passes ancillary data in the form of `TPTO_ANCILLARY_DATA`
+The app passes ancillary data in the form of `TPTO_ANCILLARY_DATA`.
 ```C
 typedef struct _TPTO_ANCILLARY_DATA {
     uint64_t TxTime;
-    uint8_t  DropIfRate
+    uint64_t TimeDelta;
 } TPTO_ANCILLARY_DATA;
 ```
 
 - TxTime to indicate when the associated packet is sent
-- DropIfRate to indicate whether to drop packet if it cannot be transmitted by the given deadline
+- TimeDelta is to spread batching packets
+
+
+To avoid costly behavior like packet recovery, just send immediately if the packet's TxTime has passed already. (Do not set DropIfRate flag)
+
+
 
 > **TODO**
 
@@ -179,14 +186,9 @@ typedef struct _NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO {
     ULONG IsIPv6 : 1;
     ULONG IsTcp : 1;
     ULONG IsUdp : 1;
-    ULONG TxTime : 64;
-    ULONG DropIfRate : 1;
+    ULONGLONG TxTime : 64;
+    ULONGLONG TimeDelta : 64;
   } Transmit;
-  struct {
-    ULONG TcpTxTimeFailed : 1;
-    ULONG UdpTxTimeFailed : 1;
-  } TransmitComplete;
-  # Transmit only?
 } NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO, *PNDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO;
 ```
 
