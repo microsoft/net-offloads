@@ -21,7 +21,12 @@ The Winsock API (currently only software fallback) already exists, and details o
 
 This section describes necessary updates in the Windows network stack to support URO.
 
-> **TODO**
+- TCPIP will disable the hardware offload, and the software fallback, if any WFP/LWF filters that are URO-incompatible are installed on the system.
+- If hardware URO is not available, but a socket opts-in to URO with the Winsock API, software URO will be used for that socket. Software coalescing will follow the same rules as NDIS, except for the following:
+    - Software coalescing may decide to use multiple NBLs in a chain of up to 255, instead of a single NBL.
+    - Software coalescing may also coalesce UDP payloads of different lengths using the above method.
+- If hardware URO is enabled, but a socket opts-in to a smaller max coalesced size, TCPIP will break the coalesced receive into the smaller size for the socket.
+- If hardware URO is enabled, but a socket does not opt-in to URO, then TCPIP will resegment receives for that socket.
 
 # NDIS
 
@@ -31,12 +36,12 @@ The NDIS interface for URO is used for communication between TCPIP and the NDIS 
 
 URO can only be attempted on a batch of packets that meet **all** the following criteria:
 
-- 5-tuple matches
-- Payload length is identical for all datagrams, except the last datagram which may be less
+- 5-tuple matches.
+- Payload length is identical for all datagrams, except the last datagram which may be less.
 - The checksums on pre-coalesced packets must be correct.
-- ECN, DF bits must match on all packets (IPv4)
-- NextHeader must be UDP (IPv6)
-- The total length of the Single Coalesced Unit (SCU) must not exceed IP max length
+- ECN, DF bits must match on all packets (IPv4).
+- NextHeader must be UDP (IPv6).
+- The total length of the Single Coalesced Unit (SCU) must not exceed IP max length.
 
 The resulting SCU must have a single IP header first, then the UDP header, followed by just the UDP payload for all coalesced datagrams concatenated together. 
 ```
@@ -49,7 +54,7 @@ Fig. 1 - A Single Coalesced Unit.
 
 ## Headers
 
-ntddndis.h
+### ntddndis.h
 ```
 #if (NDIS_SUPPORT_NDIS690)
 //
@@ -89,7 +94,7 @@ typedef struct _NDIS_UDP_RECV_OFFLOAD
 } NDIS_OFFLOAD, *PNDIS_OFFLOAD;
 ```
 
-nbluro.w
+### nbluro.w
 ```
 #if NDIS_SUPPORT_NDIS690
 
