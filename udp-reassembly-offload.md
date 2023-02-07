@@ -48,4 +48,71 @@ The resulting SCU must have a single IP header first, then the UDP header, follo
 
 > **TODO**
 
+ntddndis.h
+```
+#if (NDIS_SUPPORT_NDIS690)
+//
+// values used in UDP receive offload
+//
+#define NDIS_OFFLOAD_PARAMETERS_URO_DISABLED            1
+#define NDIS_OFFLOAD_PARAMETERS_URO_ENABLED             2
+#endif // (NDIS_SUPPORT_NDIS690)
+
+...
+
+#if (NDIS_SUPPORT_NDIS690)
+    struct
+    {
+        UCHAR               Enabled;
+    } UdpReceiveOffload;
+#endif // (NDIS_SUPPORT_NDIS690)
+} NDIS_OFFLOAD_PARAMETERS, *PNDIS_OFFLOAD_PARAMETERS;
+
+...
+
+#if (NDIS_SUPPORT_NDIS690)
+typedef struct _NDIS_UDP_RECV_OFFLOAD
+{
+    BOOLEAN Enabled;
+} NDIS_UDP_RECV_OFFLOAD, *PNDIS_UDP_RECV_OFFLOAD;
+#endif
+...
+
+#if (NDIS_SUPPORT_NDIS690)
+  //
+  // UDP Receive Offload
+  //
+  NDIS_UDP_RECV_OFFLOAD        UdpRecvOffload;
+#endif
+
+} NDIS_OFFLOAD, *PNDIS_OFFLOAD;
+```
+
+nbluro.w
+```
+
+
+#if NDIS_SUPPORT_NDIS690
+
+//
+// Per-NetBufferList information for UdpRecvSegCoalesceOffloadInfo.
+//
+typedef struct _NDIS_UDP_RSC_OFFLOAD_NET_BUFFER_LIST_INFO
+{
+    union
+    {
+        struct
+        {
+            ULONG SegCount: 16;
+            ULONG SegSize: 16;
+            ULONG Reserved: 32;
+        } Receive;
+
+        PVOID Value;
+    };
+} NDIS_UDP_RSC_OFFLOAD_NET_BUFFER_LIST_INFO, *PNDIS_UDP_RSC_OFFLOAD_NET_BUFFER_LIST_INFO;
+
+#endif
+```
+
 # Appendix
