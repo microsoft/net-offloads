@@ -80,8 +80,8 @@ An app should be able to specify scheduler by `SO_TXTIME_SCHED`. Default should 
 
 ```C
 typedef enum _SO_TXTIME_SCHED_FLAGS {
-  SO_TXTIME_SCHED_ETF       = 0x00
-  SO_TXTIME_SCHED_TAPRIO    = 0x01
+    SO_TXTIME_SCHED_ETF       = 0x00
+    SO_TXTIME_SCHED_TAPRIO    = 0x01
 } SO_TXTIME_SCHED_FLAGS;
 ```
 
@@ -128,29 +128,29 @@ The NDIS interface for TPTO is used for communication between TCPIP and the NDIS
 
 `NDIS_OFFLOAD` structure need to have new member 
 ```C
-typedef struct _NDIS_OFFLOAD {
-  ...
-  NDIS_TCP_IP_TXTIME_OFFLOAD TxTime;
-} NDIS_OFFLOAD, *PNDIS_OFFLOAD;
-
 typedef struct _NDIS_TCP_IP_TXTIME_OFFLOAD {
-  struct {
-    BOOLEAN Enabled;
-  } IPv4;
-  struct {
-    BOOLEAN Enabled;
-  } IPv6;
+    struct {
+        BOOLEAN Enabled;
+    } IPv4;
+    struct {
+        BOOLEAN Enabled;
+    } IPv6;
 } NDIS_TCP_IP_TXTIME_OFFLOAD, *PNDIS_TCP_IP_TXTIME_OFFLOAD;
+
+typedef struct _NDIS_OFFLOAD {
+    ...
+    NDIS_TCP_IP_TXTIME_OFFLOAD TxTime;
+} NDIS_OFFLOAD, *PNDIS_OFFLOAD;
 ```
 
 When a miniport driver receives an `OID_TCP_OFFLOAD_PARAMETERS` set request, it must use the contents of the `NDIS_OFFLOAD_PARAMETERS` structure
 ```C
 typedef struct _NDIS_OFFLOAD_PARAMETERS
 {
-  NDIS_OBJECT_HEADER        Header;
-  // Header.Revision = NDIS_OFFLOAD_REVISION_8
-  // Header.Size     = NDIS_SIZEOF_NDIS_OFFLOAD_REVISION_8
-  // Header.Type     = ?
+    NDIS_OBJECT_HEADER        Header;
+    // Header.Revision = NDIS_OFFLOAD_REVISION_8
+    // Header.Size     = NDIS_SIZEOF_NDIS_OFFLOAD_REVISION_8
+    // Header.Type     = ?
 
     // ...
 #if (NDIS_SUPPORT_NDIS68X)
@@ -161,7 +161,6 @@ typedef struct _NDIS_OFFLOAD_PARAMETERS
     } Txtime;
 #endif // (NDIS_SUPPORT_NDIS68X)
 } NDIS_OFFLOAD_PARAMETERS, *PNDIS_OFFLOAD_PARAMETERS;
-
 
 #if (NDIS_SUPPORT_NDIS68X)
 
@@ -178,20 +177,19 @@ typedef enum _NDIS_TXTIME_SUPPORT_FLAGS {
     NDIS_TXTIME_SUPPORT_SCHED_ETF       = 0x01,
     NDIS_TXTIME_SUPPORT_SCHED_TAPRIO    = 0x02,
 }
-
 ```
 
 To obtain the `NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO` structure, a driver should call the `NET_BUFFER_LIST_INFO` macro with an _Id of `TcpIpTxTimeNetBufferListInfo`
 ```C
 typedef struct _NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO {
-  ULONGLONG TxTime : 64;
-  ULONGLONG TimeDelta : 64;
+    ULONGLONG TxTime;
+    ULONGLONG TimeDelta;
 } NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO, *PNDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO;
 
 typedef enum _NDIS_NET_BUFFER_LIST_INFO
 {
-  // ...
-  TcpIpTxTimeNetBufferListInfo,
+    // ...
+    TcpIpTxTimeNetBufferListInfo,
 } NDIS_NET_BUFFER_LIST_INFO, *PNDIS_NET_BUFFER_LIST_INFO;
 ```
 
