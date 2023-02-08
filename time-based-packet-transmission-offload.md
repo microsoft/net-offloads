@@ -18,8 +18,10 @@ Because of the time-fidelity requirements of this feature, there will not be sof
   - [Sending Packets](#sending-packets)
 - [TCPIP](#tcpip)
 - [NDIS](#ndis)
+- [NIC](#nic)
+- [Registry value based setting](#registry-value-based-setting)
 - [Appendix](#appendix)
-  - [Linix](#linix)
+  - [Linux](#linux)
 
 # Prerequisite
 
@@ -70,6 +72,8 @@ if(setsockopt(sock, SOL_SOCKET, SO_TXTIME, (char*)&optVal, optLen) == SOCKET_ERR
 ```
 
 ## Scheduler
+> Discussion: which component care this queuing/sorting/scheduling https://github.com/microsoft/quic-offloads/issues/50  
+
 An app should be able to specify scheduler by `SO_TXTIME_SCHED`. Default should be ETF
 - ETF (Earliest Txtime First)
 - TAPRIO (Time-Aware Priority Scheduler)
@@ -95,16 +99,21 @@ if(setsockopt(sock, SOL_SOCKET, SO_TXTIME_SCHED, (char*)&optVal, optLen) == SOCK
 
 ## Sending Packets
 The app calls `WSASendMsg`.   
-The app passes ancillary data in the form of `TPTO_ANCILLARY_DATA`
+The app passes ancillary data in the form of `TPTO_ANCILLARY_DATA`.
 ```C
 typedef struct _TPTO_ANCILLARY_DATA {
     uint64_t TxTime;
-    uint8_t  DropIfRate
+    uint64_t TimeDelta;
 } TPTO_ANCILLARY_DATA;
 ```
 
 - TxTime to indicate when the associated packet is sent
-- DropIfRate to indicate whether to drop packet if it cannot be transmitted by the given deadline
+- TimeDelta is an interval, starting at `TxTime`, to transmit individual packets that have been coalesced into a single send (by LSO/USO)
+
+
+To avoid costly behavior like packet recovery, just send immediately if the packet's TxTime has passed already. (Do not use DropIfLate flag)
+
+
 
 > **TODO**
 
@@ -120,12 +129,33 @@ TCPIP doesn't expect SW fallback. If hardware state changed dynamically, TCPIP j
 
 The NDIS interface for TPTO is used for communication between TCPIP and the NDIS miniport driver.
 
-NDIS to use parameter bellow to enable the feature.
+`NDIS_OFFLOAD` structure need to have new member 
+```C
+typedef struct _NDIS_OFFLOAD {
+  ...
+  NDIS_TCP_IP_TXTIME_OFFLOAD TxTime;
+} NDIS_OFFLOAD, *PNDIS_OFFLOAD;
 
+typedef struct _NDIS_TCP_IP_TXTIME_OFFLOAD {
+  struct {
+    BOOLEAN Enabled;
+  } IPv4;
+  struct {
+    BOOLEAN Enabled;
+  } IPv6;
+} NDIS_TCP_IP_TXTIME_OFFLOAD, *PNDIS_TCP_IP_TXTIME_OFFLOAD;
+```
+
+When a miniport driver receives an `OID_TCP_OFFLOAD_PARAMETERS` set request, it must use the contents of the `NDIS_OFFLOAD_PARAMETERS` structure
 ```C
 typedef struct _NDIS_OFFLOAD_PARAMETERS
 {
-    ...
+  NDIS_OBJECT_HEADER        Header;
+  // Header.Revision = NDIS_OFFLOAD_REVISION_8
+  // Header.Size     = NDIS_SIZEOF_NDIS_OFFLOAD_REVISION_8
+  // Header.Type     = ?
+
+    // ...
 #if (NDIS_SUPPORT_NDIS68X)
     struct
     {
@@ -145,6 +175,7 @@ typedef struct _NDIS_OFFLOAD_PARAMETERS
 ```
 
 ```C
+// This is if hardware support queuing/sorting
 typedef enum _NDIS_TXTIME_SUPPORT_FLAGS {
     NDIS_TXTIME_SUPPORT_FLAG_NONE       = 0x00,
     NDIS_TXTIME_SUPPORT_SCHED_ETF       = 0x01,
@@ -153,6 +184,32 @@ typedef enum _NDIS_TXTIME_SUPPORT_FLAGS {
 
 ```
 
+To obtain the `NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO` structure, a driver should call the `NET_BUFFER_LIST_INFO` macro with an _Id of `TcpIpTxTimeNetBufferListInfo`
+```C
+typedef struct _NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO {
+  ULONGLONG TxTime : 64;
+  ULONGLONG TimeDelta : 64;
+} NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO, *PNDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO;
+
+typedef enum _NDIS_NET_BUFFER_LIST_INFO
+{
+  // ...
+  TcpIpTxTimeNetBufferListInfo,
+} NDIS_NET_BUFFER_LIST_INFO, *PNDIS_NET_BUFFER_LIST_INFO;
+```
+
+> **TODO**
+
+# NIC
+- Transmit packet at TxTime (nanoseconds)
+- Batch send, Transmit set of packets which start at TxTime, then transmit with TimeDelta interval
+```
+---TxTime----|------ TimeDelta -----|------ TimeDelta -----|---
+             |  Packet 1 |          | Packet 2 |           | Packet 3 | ... | Packet N |
+```
+- Queue? Sorting?
+
+# Registry value based setting
 
 > **TODO**
 
@@ -160,6 +217,6 @@ typedef enum _NDIS_TXTIME_SUPPORT_FLAGS {
 
 [Packet timestamping](https://learn.microsoft.com/en-us/windows/win32/iphlp/packet-timestamping)
 
-## Linix
+## Linux
 
 This [article](https://lwn.net/Articles/748744/) describes the equivalent interface that was added to Linux.
