@@ -108,7 +108,7 @@ typedef struct _TPTO_ANCILLARY_DATA {
 ```
 
 - TxTime to indicate when the associated packet is sent
-- TimeDelta is an interval to transmit segmented packets by LSO/USO
+- TimeDelta is an interval, starting at `TxTime`, to transmit individual packets that have been coalesced into a single send (by LSO/USO)
 
 
 To avoid costly behavior like packet recovery, just send immediately if the packet's TxTime has passed already. (Do not use DropIfLate flag)
