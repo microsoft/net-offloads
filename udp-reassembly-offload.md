@@ -24,7 +24,7 @@ This section describes necessary updates in the Windows network stack to support
 - TCPIP will disable the hardware offload, and the software fallback, if any WFP/LWF filters that are URO-incompatible are installed on the system.
 - If hardware URO is not available, but a socket opts-in to URO with the Winsock API, software URO will be used for that socket. Software coalescing will follow the same rules as NDIS, except for the following:
     - Software coalescing may decide to use multiple NBLs in a chain of up to 255, instead of a single NBL.
-    - Software coalescing may also coalesce UDP payloads of different lengths using the above method.
+    - Software coalescing will not coalesce IP fragments, broadcast or multicast datagrams, or datagrams with IP extension headers.
 - If hardware URO is enabled, but a socket opts-in to a smaller max coalesced size, TCPIP will break the coalesced receive into the smaller size for the socket.
 - If hardware URO is enabled, but a socket does not opt-in to URO, then TCPIP will resegment receives for that socket.
 
