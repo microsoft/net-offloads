@@ -146,11 +146,15 @@ typedef struct _NDIS_TCP_IP_TXTIME_OFFLOAD {
 ```
 
 When a miniport driver receives an `OID_TCP_OFFLOAD_PARAMETERS` set request, it must use the contents of the `NDIS_OFFLOAD_PARAMETERS` structure
-
 ```C
 typedef struct _NDIS_OFFLOAD_PARAMETERS
 {
-    ...
+  NDIS_OBJECT_HEADER        Header;
+  // Header.Revision = NDIS_OFFLOAD_REVISION_8
+  // Header.Size     = NDIS_SIZEOF_NDIS_OFFLOAD_REVISION_8
+  // Header.Type     = ?
+
+    // ...
 #if (NDIS_SUPPORT_NDIS68X)
     struct
     {
@@ -170,6 +174,7 @@ typedef struct _NDIS_OFFLOAD_PARAMETERS
 ```
 
 ```C
+// This is if hardware support queuing/sorting
 typedef enum _NDIS_TXTIME_SUPPORT_FLAGS {
     NDIS_TXTIME_SUPPORT_FLAG_NONE       = 0x00,
     NDIS_TXTIME_SUPPORT_SCHED_ETF       = 0x01,
@@ -184,6 +189,12 @@ typedef struct _NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO {
   ULONGLONG TxTime : 64;
   ULONGLONG TimeDelta : 64;
 } NDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO, *PNDIS_TCP_IP_TXTIME_NET_BUFFER_LIST_INFO;
+
+typedef enum _NDIS_NET_BUFFER_LIST_INFO
+{
+  // ...
+  TcpIpTxTimeNetBufferListInfo,
+} NDIS_NET_BUFFER_LIST_INFO, *PNDIS_NET_BUFFER_LIST_INFO;
 ```
 
 > **TODO**
