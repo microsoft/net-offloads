@@ -18,6 +18,7 @@ Because of the time-fidelity requirements of this feature, there will not be sof
   - [Sending Packets](#sending-packets)
 - [TCPIP](#tcpip)
 - [NDIS](#ndis)
+- [NIC](#nic)
 - [Registry value based setting](#registry-value-based-setting)
 - [Appendix](#appendix)
   - [Linux](#linux)
@@ -199,6 +200,14 @@ typedef enum _NDIS_NET_BUFFER_LIST_INFO
 
 > **TODO**
 
+# NIC
+- Transmit packet at TxTime (nanoseconds)
+- Batch send, Transmit set of packets which start at TxTime, then transmit with TimeDelta interval
+```
+---TxTime----|------ TimeDelta -----|------ TimeDelta -----|---
+             |  Packet 1 |          | Packet 2 |           | Packet 3 | ... | Packet N |
+```
+- Queue? Sorting?
 
 # Registry value based setting
 
