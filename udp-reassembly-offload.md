@@ -21,12 +21,13 @@ The Winsock API (currently only software fallback) already exists, and details o
 
 This section describes necessary updates in the Windows network stack to support URO.
 
-- TCPIP will disable the hardware offload, and the software fallback, if any WFP/LWF filters that are URO-incompatible are installed on the system.
+- If hardware URO is enabled, and a socket opts-in to URO with a max coalesced size the same as, or larger than, the hardare offload, then TCPIP will deliver the NBLs from hardware unmodified.
+- If hardware URO is enabled, but a socket opts-in to a smaller max coalesced size, TCPIP/AFD will break the coalesced receive into the smaller size for the socket.
+- If hardware URO is enabled, but a socket does not opt-in to URO, then TCPIP will resegment receives for that socket.
 - If hardware URO is not available, but a socket opts-in to URO with the Winsock API, software URO will be used for that socket. Software coalescing will follow the same rules as NDIS, except for the following:
     - Software coalescing may decide to use multiple NBLs in a chain of up to 255, instead of a single NBL.
     - Software coalescing will not coalesce IP fragments, broadcast or multicast datagrams, or datagrams with IP extension headers.
-- If hardware URO is enabled, but a socket opts-in to a smaller max coalesced size, TCPIP will break the coalesced receive into the smaller size for the socket.
-- If hardware URO is enabled, but a socket does not opt-in to URO, then TCPIP will resegment receives for that socket.
+- TCPIP will disable the hardware offload, and the software fallback, if any WFP/LWF filters that are URO-incompatible are installed on the system.
 
 # NDIS
 
@@ -38,10 +39,12 @@ URO can only be attempted on a batch of packets that meet **all** the following 
 
 - 5-tuple matches.
 - Payload length is identical for all datagrams, except the last datagram which may be less.
-- The checksums on pre-coalesced packets must be correct.
-- ECN, DF bits must match on all packets (IPv4).
-- NextHeader must be UDP (IPv6).
+- The UDP checksums on pre-coalesced packets must be correct.
+- TTL, ToS/ECN, Protocol, and DF bit must match on all packets (IPv4).
+- TC/ECN, FlowLabel, and HopLimit must match, and NextHeader must be UDP (IPv6).
 - The total length of the Single Coalesced Unit (SCU) must not exceed IP max length.
+
+The coalesced IP length field and the UDP length field must reflect the new coalesced length. The coalesced IPv4 checksum field must include the new length. The coalesced UDP checksum field is ignored and does not need to be calculated (since it was already validated individually).
 
 The resulting SCU must have a single IP header first, then the UDP header, followed by just the UDP payload for all coalesced datagrams concatenated together. 
 ```
@@ -55,6 +58,8 @@ Fig. 1 - A Single Coalesced Unit.
 ## Headers
 
 ### ntddndis.h
+
+These structures are new for this offload.
 ```
 #if (NDIS_SUPPORT_NDIS690)
 //
@@ -95,8 +100,10 @@ typedef struct _NDIS_UDP_RECV_OFFLOAD
 ```
 
 ### nbluro.w
+
+This header already exists today.
 ```
-#if NDIS_SUPPORT_NDIS690
+#if NDIS_SUPPORT_NDIS684
 
 //
 // Per-NetBufferList information for UdpRecvSegCoalesceOffloadInfo.
@@ -107,9 +114,8 @@ typedef struct _NDIS_UDP_RSC_OFFLOAD_NET_BUFFER_LIST_INFO
     {
         struct
         {
-            ULONG SegCount: 16;
-            ULONG SegSize:  16;
-            ULONG Reserved: 32;
+            USHORT SegCount;
+            USHORT SegSize;
         } Receive;
 
         PVOID Value;
