@@ -44,7 +44,7 @@ URO can only be attempted on a batch of packets that meet **all** the following 
 - TC/ECN, FlowLabel, and HopLimit must match, and NextHeader must be UDP (IPv6).
 - The total length of the Single Coalesced Unit (SCU) must not exceed IP max length.
 
-The coalesced IP length field and the UDP length field must be the new coalesced length. The coalesced IPv4 checksum field must include the new length. The coalesced UDP checksum field is ignored and does not need to be calculated (since it was already validated individually).
+The coalesced IP length field and the UDP length field must reflect the new coalesced length. The coalesced IPv4 checksum field must include the new length. The coalesced UDP checksum field is ignored and does not need to be calculated (since it was already validated individually).
 
 The resulting SCU must have a single IP header first, then the UDP header, followed by just the UDP payload for all coalesced datagrams concatenated together. 
 ```
