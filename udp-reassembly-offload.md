@@ -63,7 +63,7 @@ These structures are new for this offload.
 ```
 #if (NDIS_SUPPORT_NDIS690)
 //
-// values used in UDP receive offload
+// values used in UDP reassembly offload
 //
 #define NDIS_OFFLOAD_PARAMETERS_URO_DISABLED            1
 #define NDIS_OFFLOAD_PARAMETERS_URO_ENABLED             2
@@ -75,25 +75,25 @@ These structures are new for this offload.
     struct
     {
         UCHAR               Enabled;
-    } UdpReceiveOffload;
+    } UdpReassembly;
 #endif // (NDIS_SUPPORT_NDIS690)
 } NDIS_OFFLOAD_PARAMETERS, *PNDIS_OFFLOAD_PARAMETERS;
 
 ...
 
 #if (NDIS_SUPPORT_NDIS690)
-typedef struct _NDIS_UDP_RECV_OFFLOAD
+typedef struct _NDIS_UDP_REASSEMBLY_OFFLOAD
 {
     BOOLEAN Enabled;
-} NDIS_UDP_RECV_OFFLOAD, *PNDIS_UDP_RECV_OFFLOAD;
+} NDIS_UDP_REASSEMBLY_OFFLOAD, *PNDIS_UDP_REASSEMBLY_OFFLOAD;
 #endif
 ...
 
 #if (NDIS_SUPPORT_NDIS690)
     //
-    // UDP Receive Offload
+    // UDP reassembly offload.
     //
-    NDIS_UDP_RECV_OFFLOAD        UdpRecvOffload;
+    NDIS_UDP_REASSEMBLY_OFFLOAD              UdpReassembly;
 #endif
 
 } NDIS_OFFLOAD, *PNDIS_OFFLOAD;
