@@ -1,4 +1,4 @@
-# UDP Reassembly Offload (URO)
+# UDP Receive Segment Coalescing Offload (URO)
 
 > **Note**
 > This document is a work in progress.
