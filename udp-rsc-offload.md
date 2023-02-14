@@ -63,7 +63,7 @@ These structures are new for this offload.
 ```
 #if (NDIS_SUPPORT_NDIS690)
 //
-// values used in UDP reassembly offload
+// values used in UDP RSC offload
 //
 #define NDIS_OFFLOAD_PARAMETERS_URO_DISABLED            1
 #define NDIS_OFFLOAD_PARAMETERS_URO_ENABLED             2
