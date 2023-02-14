@@ -75,25 +75,25 @@ These structures are new for this offload.
     struct
     {
         UCHAR               Enabled;
-    } UdpReassembly;
+    } UdpRsc;
 #endif // (NDIS_SUPPORT_NDIS690)
 } NDIS_OFFLOAD_PARAMETERS, *PNDIS_OFFLOAD_PARAMETERS;
 
 ...
 
 #if (NDIS_SUPPORT_NDIS690)
-typedef struct _NDIS_UDP_REASSEMBLY_OFFLOAD
+typedef struct _NDIS_UDP_RSC_OFFLOAD
 {
     BOOLEAN Enabled;
-} NDIS_UDP_REASSEMBLY_OFFLOAD, *PNDIS_UDP_REASSEMBLY_OFFLOAD;
+} NDIS_UDP_RSC_OFFLOAD, *PNDIS_UDP_RSC_OFFLOAD;
 #endif
 ...
 
 #if (NDIS_SUPPORT_NDIS690)
     //
-    // UDP reassembly offload.
+    // UDP RSC offload.
     //
-    NDIS_UDP_REASSEMBLY_OFFLOAD              UdpReassembly;
+    NDIS_UDP_RSC_OFFLOAD              UdpRsc;
 #endif
 
 } NDIS_OFFLOAD, *PNDIS_OFFLOAD;
