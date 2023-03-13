@@ -3,8 +3,8 @@
 This repository is for defining various QUIC hardware offload specifications. When officially complete, these specs will
 be published at a more standard location (TBD).
 
-- [QUIC Encryption Offload](quic-encryption-offload.md) - Offloading QUIC short header packet encryption and decryption.
 - [UDP RSC Offload](udp-rsc-offload.md) - Offloading UDP datagram coalescing and reassembly.
+- [QUIC Encryption Offload](quic-encryption-offload.md) - Offloading QUIC short header packet encryption and decryption.
 - [Time based Packet Transmission Offload](time-based-packet-transmission-offload.md) - Offloading per packet transmission timestamps.
 
 ## Contributing
