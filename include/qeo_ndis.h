@@ -5,7 +5,11 @@
 
 #pragma once
 
-#define OID_QUIC_CONNECTION_ENCRYPTION 0x00A00205
+//
+// Temporarily repurpose the OID_TCP_TASK_IPSEC_OFFLOAD_V2_UPDATE_SA OID
+// until NDIS changes are released.
+//
+#define OID_QUIC_CONNECTION_ENCRYPTION OID_TCP_TASK_IPSEC_OFFLOAD_V2_UPDATE_SA
 
 typedef enum _NDIS_QEO_SUPPORT_FLAGS {
     NDIS_QEO_SUPPORT_FLAG_NONE                   = 0x0000,
