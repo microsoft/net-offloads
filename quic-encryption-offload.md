@@ -11,7 +11,7 @@ Today, MsQuic builds each QUIC packet by writing headers and copying application
 When running MsQuic in "max throughput" mode (which parallelizes QUIC and UDP work), for bulk throughput scenarios (i.e., large file transfers), as much as 70% of a single CPU may be consumed by encryption.
 This constitutes the largest CPU bottleneck in the scenario.
 
-## Table of Context
+## Table of Contents
 
 - [Winsock](#winsock)
 - [TCPIP](#tcpip)
