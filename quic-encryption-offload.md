@@ -85,21 +85,21 @@ typedef enum _QEO_CIPHER_TYPE {
 } QEO_CIPHER_TYPE;
 
 typedef struct _QEO_CONNECTION {
-    uint32_t Operation            : 1;  // QEO_OPERATION
-    uint32_t Direction            : 1;  // QEO_DIRECTION
-    uint32_t DecryptFailureAction : 1;  // QEO_DECRYPT_FAILURE_ACTION
-    uint32_t KeyPhase             : 1;
-    uint32_t RESERVED             : 12; // Must be set to 0. Don't read.
-    uint32_t CipherType           : 16; // QEO_CIPHER_TYPE
+    UINT32 Operation            : 1;  // QEO_OPERATION
+    UINT32 Direction            : 1;  // QEO_DIRECTION
+    UINT32 DecryptFailureAction : 1;  // QEO_DECRYPT_FAILURE_ACTION
+    UINT32 KeyPhase             : 1;
+    UINT32 RESERVED             : 12; // Must be set to 0. Don't read.
+    UINT32 CipherType           : 16; // QEO_CIPHER_TYPE
     ADDRESS_FAMILY AddressFamily;
-    uint16_t UdpPort;
-    uint64_t NextPacketNumber;
-    uint8_t ConnectionIdLength;
-    uint8_t Address[16];
-    uint8_t ConnectionId[20]; // Limit to max of QUIC v1 & v2
-    uint8_t PayloadKey[32];   // Length determined by CipherType
-    uint8_t HeaderKey[32];    // Length determined by CipherType
-    uint8_t PayloadIv[12];
+    UINT16 UdpPort;
+    UINT64 NextPacketNumber;
+    UINT8 ConnectionIdLength;
+    UINT8 Address[16];
+    UINT8 ConnectionId[20]; // Limit to max of QUIC v1 & v2
+    UINT8 PayloadKey[32];   // Length determined by CipherType
+    UINT8 HeaderKey[32];    // Length determined by CipherType
+    UINT8 PayloadIv[12];
 } QEO_CONNECTION;
 ```
 
@@ -286,7 +286,7 @@ Before the NDIS protocol driver posts any packets for a QEO connection, it first
 The OID RequestType must be NdisRequestMethod to ensure input/output support.
 The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains an array of type `NDIS_QUIC_CONNECTION`.
 The `InformationBufferLength` field contains the length of the array in bytes.
-The `Revision` field in the `NDIS_OBJECT_HEADER` of the `NDIS_OID_REQUEST` is set to 0.
+The `Revision` field in the `NDIS_OBJECT_HEADER` of the `NDIS_OID_REQUEST` is set to `NDIS_QUIC_CONNECTION_REVISION_1`.
 
 ```C
 typedef enum _NDIS_QUIC_OPERATION {
@@ -311,22 +311,27 @@ typedef enum _NDIS_QUIC_CIPHER_TYPE {
     NDIS_QUIC_CIPHER_TYPE_AEAD_AES_128_CCM,
 } NDIS_QUIC_CIPHER_TYPE;
 
+typedef enum _NDIS_QUIC_ADDRESS_FAMILY {
+    NDIS_QUIC_ADDRESS_FAMILY_INET4,
+    NDIS_QUIC_ADDRESS_FAMILY_INET6,
+} NDIS_QUIC_ADDRESS_FAMILY;
+
 typedef struct _NDIS_QUIC_CONNECTION {
-    uint32_t Operation            : 1;  // NDIS_QUIC_OPERATION
-    uint32_t Direction            : 1;  // NDIS_QUIC_DIRECTION
-    uint32_t DecryptFailureAction : 1;  // NDIS_QUIC_DECRYPT_FAILURE_ACTION
-    uint32_t KeyPhase             : 1;
-    uint32_t RESERVED             : 12; // Must be set to 0. Don't read.
-    uint32_t CipherType           : 16; // NDIS_QUIC_CIPHER_TYPE
-    ADDRESS_FAMILY AddressFamily;
-    uint16_t UdpPort;         // Destination port.
-    uint64_t NextPacketNumber;
-    uint8_t ConnectionIdLength;
-    uint8_t Address[16];      // Destination IP address.
-    uint8_t ConnectionId[20]; // QUIC v1 and v2 max CID size
-    uint8_t PayloadKey[32];   // Length determined by CipherType
-    uint8_t HeaderKey[32];    // Length determined by CipherType
-    uint8_t PayloadIv[12];
+    UINT32 Operation            : 1;  // NDIS_QUIC_OPERATION
+    UINT32 Direction            : 1;  // NDIS_QUIC_DIRECTION
+    UINT32 DecryptFailureAction : 1;  // NDIS_QUIC_DECRYPT_FAILURE_ACTION
+    UINT32 KeyPhase             : 1;
+    UINT32 RESERVED             : 12; // Must be set to 0. Don't read.
+    UINT32 CipherType           : 16; // NDIS_QUIC_CIPHER_TYPE
+    NDIS_QUIC_ADDRESS_FAMILY AddressFamily;
+    UINT16 UdpPort;         // Destination port.
+    UINT64 NextPacketNumber;
+    UINT8 ConnectionIdLength;
+    UINT8 Address[16];      // Destination IP address.
+    UINT8 ConnectionId[20]; // QUIC v1 and v2 max CID size
+    UINT8 PayloadKey[32];   // Length determined by CipherType
+    UINT8 HeaderKey[32];    // Length determined by CipherType
+    UINT8 PayloadIv[12];
     NDIS_STATUS Status;       // The result of trying to offload this connection.
 } NDIS_QUIC_CONNECTION;
 ```
