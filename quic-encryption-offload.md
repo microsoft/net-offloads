@@ -286,7 +286,6 @@ Before the NDIS protocol driver posts any packets for a QEO connection, it first
 The OID RequestType must be NdisRequestMethod to ensure input/output support.
 The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains an array of type `NDIS_QUIC_CONNECTION`.
 The `InformationBufferLength` field contains the length of the array in bytes.
-The `Revision` field in the `NDIS_OBJECT_HEADER` of the `NDIS_OID_REQUEST` is set to `NDIS_QUIC_CONNECTION_REVISION_1`.
 
 ```C
 typedef enum _NDIS_QUIC_OPERATION {

@@ -66,5 +66,3 @@ typedef struct _NDIS_QUIC_CONNECTION {
     UINT8 PayloadIv[12];
     NDIS_STATUS Status;       // The result of trying to offload this connection.
 } NDIS_QUIC_CONNECTION;
-
-#define NDIS_QUIC_CONNECTION_REVISION_1  1
