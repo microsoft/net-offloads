@@ -1,6 +1,6 @@
 # Project
 
-This repository is for defining various QUIC hardware offload specifications. When officially complete, these specs will
+This repository is for defining various networking hardware offload specifications. When officially complete, these specs may
 be published at a more standard location (TBD).
 
 - [UDP RSC Offload](udp-rsc-offload.md) - Offloading UDP datagram coalescing and reassembly.
