@@ -342,7 +342,7 @@ The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID also contai
 
 The `Operation` field of each `NDIS_QUIC_CONNECTION` in the OID `InformationBuffer` array determines whether that connection is being added or removed. A single OID can therefore both add and remove connections.
 
-The `Status` field of each `NDIS_QUIC_CONNECTION` is an output from the miniport to reflect the result of trying to offload the connection. This allows for individual connections to succeed or fail, without failing the entire OID.
+The `Status` field of each `NDIS_QUIC_CONNECTION` is an output from the miniport to reflect the result of trying to offload the connection. This allows for individual connections to succeed or fail, without failing the entire OID. The `NDIS_QUIC_CONNECTION` array output by a successful OID request must be identical in layout to the input array, i.e., connections must not be reordered or realigned, and identifying fields within each connection entry must be preserved.
 
 ## Sending Packets
 
