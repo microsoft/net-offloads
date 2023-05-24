@@ -287,6 +287,16 @@ The OID RequestType must be NdisRequestMethod to ensure input/output support.
 The `InformationBuffer` field of the `NDIS_OID_REQUEST` for this OID contains an array of type `NDIS_QUIC_CONNECTION`.
 The `InformationBufferLength` field contains the length of the array in bytes.
 
+> **Note** For development on Windows versions older than ***TBD*** prototype
+> miniport drivers may handle `OID_QUIC_CONNECTION_ENCRYPTION_PROTOTYPE`
+> requests in the same manner as `OID_QUIC_CONNECTION_ENCRYPTION`. The prototype
+> OID must not be supported in any official or released miniport driver
+> versions.
+>
+> **Note** Miniport drivers installed on Windows versions older than ***TBD***
+> must reject any `OID_QUIC_CONNECTION_ENCRYPTION` requests submitted to the
+> regular, i.e., non-direct, miniport OID handler.
+
 ```C
 typedef enum _NDIS_QUIC_OPERATION {
     NDIS_QUIC_OPERATION_ADD,     // Add (or modify) a QUIC connection offload
