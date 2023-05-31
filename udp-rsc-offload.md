@@ -27,6 +27,9 @@ This section describes necessary updates in the Windows network stack to support
 - If hardware URO is not available, but a socket opts-in to URO with the Winsock API, software URO will be used for that socket. Software coalescing will follow the same rules as NDIS, except for the following:
     - Software coalescing may decide to use multiple NBLs in a chain of up to 255, instead of a single NBL.
     - Software coalescing will not coalesce IP fragments, broadcast or multicast datagrams, or datagrams with IP extension headers.
+    - Software coalescing will not coalesce UDP checksum validation failed
+    - Software coalescing will not coalesce when Mdl->MdlFlags & MDL_SOURCE_IS_NONPAGED_POOL == 0
+    - Software coalescing will not coalesce small packet
 - TCPIP will disable the hardware offload, and the software fallback, if any WFP/LWF filters that are URO-incompatible are installed on the system.
 
 # NDIS
