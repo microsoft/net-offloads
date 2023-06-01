@@ -46,6 +46,7 @@ URO can only be attempted on a batch of packets that meet **all** the following 
 - When the SCU length is larger than the max IP length:
   - set NB->DataLength to the coalesced size (up to 0xFFFFFFFF)
   - set IP total length field to 0
+  - set UDP length field to 0
 
 The coalesced IP length field and the UDP length field must reflect the new coalesced length. The coalesced IPv4 checksum field must include the new length. The coalesced UDP checksum field is ignored and does not need to be calculated (since it was already validated individually).
 
