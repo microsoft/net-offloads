@@ -42,7 +42,8 @@ URO can only be attempted on a batch of packets that meet **all** the following 
 - The UDP checksums on pre-coalesced packets must be correct. This means checksum offload must be enabled and set the checksum OOB info.
 - TTL, ToS/ECN, Protocol, and DF bit must match on all packets (IPv4).
 - TC/ECN, FlowLabel, and HopLimit must match, and NextHeader must be UDP (IPv6).
-- When coalesced packet length is larger than max IP length
+- The total length of the Single Coalesced Unit (SCU) is allowed to exceed IP max length.
+- When the SCU length is larger than the max IP length:
   - set NB->DataLength to the coalesced size (up to 0xFFFFFFFF)
   - set IP total length field to 0
 
