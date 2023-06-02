@@ -48,7 +48,8 @@ URO indications should set the IP length, IPv4 checksum, UDP length, and UDP che
 
 If L2 headers are present in coalesced datagrams, the SCU must contain a valid L2 header. The contents of the L2 header in each coalesced datagram may vary; the L2 header in the SCU should resemble the L2 header of at least one of the coalesced datagrams.
 
-The full SCU size (max of 0xFFFFFFFF) must be set in the NB->DataLength field.
+The full SCU size must be set in the NB->DataLength field. The size of SCUs should not exceed 2MB.
+
 ```
 +------------------------------------------------------------------------------------------+
 | L2 Header | IP Header | UDP Header | UDP Payload 1 | UDP Payload 2 | ... | UDP Payload N |
