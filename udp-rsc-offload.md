@@ -11,7 +11,6 @@ In the absence of hardward support, the OS will attempt a best-effort software f
 - [Winsock](#winsock)
 - [TCPIP](#tcpip)
 - [NDIS](#ndis)
-- [Appendix](#appendix)
 
 # Winsock
 
@@ -124,5 +123,3 @@ typedef struct _NDIS_UDP_RSC_OFFLOAD_NET_BUFFER_LIST_INFO
 
 #endif
 ```
-
-# Appendix
