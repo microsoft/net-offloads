@@ -36,8 +36,8 @@ The NDIS interface for URO is used for communication between TCPIP and the NDIS 
 
 URO can only be attempted on a batch of packets that meet **all** the following criteria:
 
-- 5-tuple matches.
-- Payload length is identical for all datagrams, except the last datagram which may be less.
+- 5-tuple matches, i.e., IP source and destination address, IP protocol/next header, UDP source and destination port.
+- Payload length is identical for all datagrams, except the last datagram, which may be less.
 - The UDP checksums on pre-coalesced packets must be correct. This means checksum offload must be enabled and set the checksum OOB info.
 - TTL, ToS/ECN, Protocol, and DF bit must match on all packets (IPv4).
 - TC/ECN, FlowLabel, and HopLimit must match, and NextHeader must be UDP (IPv6).
@@ -46,11 +46,13 @@ The resulting Single Coalesced Unit (SCU) must have a single IP header and UDP h
 
 URO indications should set the IP length, UDP length, and UDP checksum fields to zero, and components handling these indications must ignore these fields.
 
+If L2 headers are present in coalesced datagrams, the SCU must contain a valid L2 header. The contents of the L2 header in each coalesced datagram may vary; the L2 header in the SCU should resemble the L2 header of at least one of the coalesced datagrams.
+
 The full SCU size (max of 0xFFFFFFFF) must be set in the NB->DataLength field.
 ```
---------------------------------------------------------------------------------
-| IP Header | UDP Header | UDP Payload 1 | UDP Payload 2 | ... | UDP Payload N |
---------------------------------------------------------------------------------
++------------------------------------------------------------------------------------------+
+| L2 Header | IP Header | UDP Header | UDP Payload 1 | UDP Payload 2 | ... | UDP Payload N |
++------------------------------------------------------------------------------------------+
 ```
 Fig. 1 - A Single Coalesced Unit.
 
