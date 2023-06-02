@@ -395,7 +395,7 @@ typedef struct _NDIS_QUIC_ENCRYPTION_RECEIVE_NET_BUFFER_LIST_INFO {
 
 ### Changes to URO
 
-When QEO is combined with URO (UDP RSC Offload), the requirements for coalescing are ammended to include:
+When QEO is combined with URO (UDP RSC Offload), the requirements for coalescing are amended to include:
 
 - The QUIC connection IDs must match
 - The QUIC decryption status must match
