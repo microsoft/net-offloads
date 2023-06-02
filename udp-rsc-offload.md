@@ -38,12 +38,13 @@ URO can only be attempted on a batch of packets that meet **all** the following 
 - 5-tuple matches.
 - Payload length is identical for all datagrams, except the last datagram which may be less.
 - The UDP checksums on pre-coalesced packets must be correct. This means checksum offload must be enabled and set the checksum OOB info.
+- The IPv4 header checksum on pre-coalesced packets must be correct. This means checksum offload must be enabled and set the checksum OOB info.
 - TTL, ToS/ECN, Protocol, and DF bit must match on all packets (IPv4).
 - TC/ECN, FlowLabel, and HopLimit must match, and NextHeader must be UDP (IPv6).
 
 The resulting Single Coalesced Unit (SCU) must have a single IP header and UDP header, followed by the UDP payload for all coalesced datagrams concatenated together.
 
-URO indications should set the IP length, UDP length, and UDP checksum fields to zero, and components handling these indications must ignore these fields.
+URO indications should set the IP length, IPv4 checksum, UDP length, and UDP checksum fields to zero, and components handling these indications must ignore these fields.
 
 The full SCU size (max of 0xFFFFFFFF) must be set in the NB->DataLength field.
 ```
