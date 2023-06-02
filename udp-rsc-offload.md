@@ -47,7 +47,7 @@ The resulting Single Coalesced Unit (SCU) must have a single IP header and UDP h
 
 URO indications should set the IP length, UDP length, and UDP checksum fields to zero, and components handling these indications must ignore these fields.
 
-The coalesced size (max of 0xFFFFFFFF) must be set in the NB->DataLength field.
+The full SCU size (max of 0xFFFFFFFF) must be set in the NB->DataLength field.
 ```
 --------------------------------------------------------------------------------
 | IP Header | UDP Header | UDP Payload 1 | UDP Payload 2 | ... | UDP Payload N |
