@@ -4,7 +4,7 @@
 > This document is a work in progress.
 
 This document describes an offload called URO which offloads coalescing and reassembly of multiple UDP datagrams into a single contiguous buffer.
-In the absence of hardward support, the OS will attempt a best-effort software fallback.
+In the absence of hardware support, the OS will attempt a best-effort software fallback.
 
 ## Table of Context
 
