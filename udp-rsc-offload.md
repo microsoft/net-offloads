@@ -21,12 +21,12 @@ The Winsock API (currently only software fallback) already exists, and details o
 
 This section describes necessary updates in the Windows network stack (TCPIP & AFD) when hardware URO support is enabled:
 
-- If a socket opts-in to URO with a max coalesced size greater than or equal to the hardare offload size, then the OS will deliver the NBLs from hardware unmodified to the socket.
+- If a socket opts-in to URO with a max coalesced size greater than or equal to the hardware offload size, then the OS will deliver the NBLs from hardware unmodified to the socket.
 - If a socket opts-in to a smaller max coalesced size, the OS will break the coalesced receive into the smaller size for the socket.
 - If a socket does not opt-in to URO, then the OS will resegment receives for that socket.
 - If an incompatible WFP filter is encountered, then the OS will resegment receives for that filter.
 
-In the absense of hardware URO, the existing software URO feature will continue to be available.
+In the absence of hardware URO, the existing software URO feature will continue to be available.
 
 # NDIS
 
