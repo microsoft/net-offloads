@@ -393,6 +393,13 @@ typedef struct _NDIS_QUIC_ENCRYPTION_RECEIVE_NET_BUFFER_LIST_INFO {
 
 `NdisQuicDecryptionFailed` is set as the `DecryptionStatus` if a connection record was found matching the packet but packet decryption failed.
 
+### Changes to URO
+
+When QEO is combined with URO (UDP RSC Offload), the requirements for coalescing are amended to include:
+
+- The QUIC connection IDs must match
+- The QUIC decryption status must match
+
 ### Psuedocode
 
 ```c++
