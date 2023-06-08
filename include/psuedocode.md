@@ -46,7 +46,7 @@ void on_packet_tx(packet packet) {
 
 void on_packet_rx(packet packet) {
     if (packet.udp_payload[0] == "long header") return;
-    byte[] cid = packet.udp_payload[1 .. rx_cid_length]; // tx_cid_length bytes after the first byte
+    byte[] cid = packet.udp_payload[1 .. rx_cid_length]; // rx_cid_length bytes after the first byte
     uint packet_number = packet.udp_payload[rx_cid_length+1 .. rx_cid_length+4]; // 4 bytes after the CID
     offload_info offload = rx_offload_table.find(packet.ip_address, cid);
     decrypt_quic_packet(packet, offload, packet_number)
