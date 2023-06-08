@@ -2,9 +2,9 @@ The follow outlines some psuedocode for how to implement the logic for a prototy
 
 ```
 struct offload_info {
-    int operation;
-    int direction;
-    int next_packet_number;
+    uint operation;
+    uint direction;
+    uint next_packet_number;
     addr ip_address;
     byte cid[];
     key_info key;
@@ -39,7 +39,7 @@ void update_offload(offload_info offloads[]) {
 void on_packet_tx(packet packet) {
     if (packet.udp_payload[0] == "long header") return;
     byte[] cid = packet.udp_payload[1 .. tx_cid_length+1];
-    byte packet_number = packet.udp_payload[tx_cid_length+2 .. tx_cid_length+6]; // 4 bytes
+    uint packet_number = packet.udp_payload[tx_cid_length+2 .. tx_cid_length+6]; // 4 bytes
     offload_info offload = tx_offload_table.find(packet.ip_address, cid);
     encrypt_quic_packet(packet, offload, packet_number)
 }
@@ -47,7 +47,7 @@ void on_packet_tx(packet packet) {
 void on_packet_rx(packet packet) {
     if (packet.udp_payload[0] == "long header") return;
     byte[] cid = packet.udp_payload[1 .. rx_cid_length+1];
-    byte packet_number = packet.udp_payload[rx_cid_length+2 .. rx_cid_length+6]; // 4 bytes
+    uint packet_number = packet.udp_payload[rx_cid_length+2 .. rx_cid_length+6]; // 4 bytes
     offload_info offload = rx_offload_table.find(packet.ip_address, cid);
     decrypt_quic_packet(packet, offload, packet_number)
 }
