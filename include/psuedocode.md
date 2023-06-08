@@ -21,10 +21,10 @@ void update_offload(offload_info offloads[]) {
         if (offload.operation == "add") {
             if (offload.direction == "tx") {
                 if (tx_cid_length == -1) tx_cid_length = offload.cid.length;
-                tx_offload_table.add_or_update(offload);
+                tx_offload_table.add(offload); // eventually will support update too, but simplifying things for now
             } else {
                 if (rx_cid_length == -1) rx_cid_length = offload.cid.length;
-                rx_offload_table.add_or_update(offload);
+                rx_offload_table.add(offload); // eventually will support update too, but simplifying things for now
             }
         } else {
             if (offload.direction == "tx") {
