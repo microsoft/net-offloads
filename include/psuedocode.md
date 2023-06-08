@@ -37,7 +37,7 @@ void update_offload(offload_info offloads[]) {
 }
 
 // Based on https://github.com/microsoft/msquic/blob/main/src/core/packet.h#L372
-void decompress_packet_number(ulong expected_packet_number, int compressed_packet_number) {
+void decompress_packet_number(ulong expected_packet_number, uint compressed_packet_number) {
     ulong Mask = 0xFFFFFFFF00000000;
     ulong PacketNumberInc = (~Mask) + 1;
     ulong PacketNumber = (Mask & expected_packet_number) | compressed_packet_number;
