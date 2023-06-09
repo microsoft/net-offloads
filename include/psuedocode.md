@@ -1,6 +1,6 @@
 The follow outlines some psuedocode for how to implement the logic for a prototype QEO solution.
 
-```
+```csharp
 struct offload_info {
     uint operation;
     uint direction;
