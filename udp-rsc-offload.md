@@ -8,47 +8,53 @@ In the absence of hardware support, the OS will attempt a best-effort software f
 
 ## Table of Context
 
+- [Rules](#rules)
 - [Winsock](#winsock)
 - [TCPIP](#tcpip)
 - [NDIS](#ndis)
 
-# Winsock
-
-The Winsock API (currently only software fallback) already exists, and details on the API can be found [here](https://learn.microsoft.com/en-us/windows/win32/winsock/ipproto-udp-socket-options). Please see the info on `UDP_RECV_MAX_COALESCED_SIZE ` and `UDP_COALESCED_INFO`.
-
-# TCPIP
-
-This section describes necessary updates in the Windows network stack (TCPIP & AFD) when hardware URO support is enabled:
-
-- If a socket opts-in to URO with a max coalesced size greater than or equal to the hardware offload size, then the OS will deliver the NBLs from hardware unmodified to the socket.
-- If a socket opts-in to a smaller max coalesced size, the OS will break the coalesced receive into the smaller size for the socket.
-- If a socket does not opt-in to URO, then the OS will resegment receives for that socket.
-- If an incompatible WFP filter is encountered, then the OS will resegment receives for that filter.
-
-In the absence of hardware URO, the existing software URO feature will continue to be available.
-
-# NDIS
-
-The NDIS interface for URO is used for communication between TCPIP and the NDIS miniport driver.
-
-## Rules
-
-URO can only be attempted on a batch of packets that meet **all** the following criteria:
-
-- 5-tuple matches, i.e., IP source and destination address, IP protocol/next header, UDP source and destination port.
-- Payload length is identical for all datagrams, except the last datagram, which may be less.
-- The UDP checksums on pre-coalesced packets must be correct. This means checksum offload must be enabled and set the checksum OOB info.
-- The IPv4 header checksum on pre-coalesced packets must be correct. This means checksum offload must be enabled and set the checksum OOB info.
-- TTL, ToS/ECN, Protocol, and DF bit must match on all packets (IPv4).
-- TC/ECN, FlowLabel, and HopLimit must match, and NextHeader must be UDP (IPv6).
+# Rules
+URO coalescing can only be attempted on packets that meet all the following criteria:
+- IpHeader.Version is identical for all packets.
+- IpHeader.SourceAddress and IpHeader.DestinationAddress are identical for all packets.
+- UdpHeader.SourcePort and UdpHeader.DestinationPort are identical for all packets.
+- UdpHeader.Length is identical for all packets, except the last packet, which may be less.
+- UdpHeader.Length must be non-zero.
+- UdpHeader.Checksum, if non-zero, must be correct on all packets. This means checksum offload must be enabled and set the checksum OOB info.
+- Layer 2 headers must be identical for all packets.
+  
+If the packets are IPv4, they MUST also meet the following criteria:
+- IPv4Header.Protocol == 17 (UDP) for all packets.
+- EthernetHeader.EtherType == 0x0800 for all packets.
+- The IPv4Header.HeaderChecksum on received packets must be correct. This means checksum offload must be enabled and set the checksum OOB info.
+- IPv4Header.HeaderLength == 5 (no IPv4 Option Headers) for all packets.
+- IPv4Header.ToS is identical for all packets.
+- IPv4Header.ECN is identical for all packets.
+- IPv4Header.DontFragment is identical for all packets.
+- IPv4Header.TTL is identical for all packets.
+- IPv4Header.TotalLength == UdpHeader.Length + length(IPv4Header) for all packets.
+  
+If the packets are IPv6, they MUST also meet the following criteria:
+- IPv6Header.NextHeader == 17 (UDP) for all packets (No extension headers).
+- EthernetHeader.EtherType == 0x86dd (IPv6) for all packets.
+- IPv6Header.TrafficClass and IPv6Header.ECN are identical for all packets.
+- IPv6Header.FlowLabel is identical for all packets.
+- IPv6Header.HopLimit is identical for all packets.
+- IPv6Header.PayloadLength == UdpHeader.Length for all packets.
 
 The resulting Single Coalesced Unit (SCU) must have a single IP header and UDP header, followed by the UDP payload for all coalesced datagrams concatenated together.
 
-URO indications should set the IP length, IPv4 checksum, UDP length, and UDP checksum fields to zero, and components handling these indications must ignore these fields.
+URO indications MUST correctly calculate the IPv4Header.HeaderChecksum and UdpHeader.Checksum fields on the SCU.
 
-If L2 headers are present in coalesced datagrams, the SCU must contain a valid L2 header. The contents of the L2 header in each coalesced datagram may vary; the L2 header in the SCU should resemble the L2 header of at least one of the coalesced datagrams.
+URO indications MUST set the IPv4Header.TotalLength field to the total length of the SCU, or IPv6Header.PayloadLength field to the length of the UDP payload, and UdpHeader.Length field to the length of coalesced payloads.
 
-The full SCU size must be set in the NB->DataLength field. The size of SCUs should not exceed 256KB.
+If Layer 2 (L2) headers are present in coalesced datagrams, the SCU must contain a valid L2 header. The L2 header in the SCU MUST resemble the L2 header of the coalesced datagrams.
+
+Packets from multiple flows may be coalesced in parallel, as hardware and memory permit. Packets from different flows MUST NEVER be coalesced together.
+
+Packets from multiple receives interleaved may be separated and coalesced with their respective flows. i.e. Given flows A, B, and C, if packets arrive in the following order; A, A, B, C, B, A; the packets from the A flow may be coalesced into AAA, and the packets from the B flow coalesced into BB, while the packet from the C flow may be indicated normally or coalesced with a pending SCU from flow C.
+
+The packets within a given flow must NOT be reordered with respect to each other, i.e. the packets from the A flow must be coalesced in the order received, regardless of the packets from the B and C flows received in between.
 
 ```
 +------------------------------------------------------------------------------------------+
@@ -58,22 +64,65 @@ The full SCU size must be set in the NB->DataLength field. The size of SCUs shou
 Fig. 1 - A Single Coalesced Unit.
 
 
+# Winsock
+
+The Winsock API (currently only software URO) already exists, and details on the API can be found [here](https://learn.microsoft.com/en-us/windows/win32/winsock/ipproto-udp-socket-options). Please see the info on `UDP_RECV_MAX_COALESCED_SIZE ` and `UDP_COALESCED_INFO`.
+
+# TCPIP
+
+This section describes necessary updates in the Windows network stack (TCPIP & AFD) when hardware URO support is enabled.
+
+The Windows TCPIP stack will need to be updated to enable/disable this offload. TCPIP should enable URO at bind time with NDIS, unless configuration prevents it from doing so.
+
+WFP callouts can use [FWP_CALLOUT_FLAG_ALLOW_URO](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/fwpsk/ns-fwpsk-fwps_callout2_) to advertise their support for URO. In the case where an incompatible WFP callout is registered at a URO-sensitive layer, then the OS will disable URO while the callout is active.
+
+- If a socket opts-in to URO with a max coalesced size greater than or equal to the hardware offload size, then the stack will deliver the NBLs from hardware unmodified to the socket.
+- If a socket opts-in to a smaller max coalesced size, the stack will break the coalesced receive into the smaller size for the socket.
+- If a socket does not opt-in to URO, then the stack will resegment receives for that socket.
+
+In the absence of hardware URO, the existing software URO feature will continue to be available.
+
+# NDIS
+
+The NDIS interface for URO is used for communication between TCPIP and the NDIS miniport driver.
+
+The NDIS layer will provide [OID_TCP_OFFLOAD_PARAMETERS](https://learn.microsoft.com/en-us/windows-hardware/drivers/network/oid-tcp-offload-parameters) for upper layers to enable/disable URO, and the status of URO can be queried via [OID_TCP_OFFLOAD_CURRENT_CONFIG](https://learn.microsoft.com/en-us/windows-hardware/drivers/network/oid-tcp-offload-current-config).
+This is how RSC is controlled at the NDIS layer and should be familiar to implementors of NDIS drivers.
+
+Like RSC, URO will require the NIC to wait to complete the **OID_TCP_OFFLOAD_PARAMETERS** request with **NDIS_OFFLOAD_PARAMETERS_UDP_RSC_DISABLED** flag set until it indicates existing coalesced segments and all outstanding URO indications are completed.  This simplifies support for all NDIS components, so they don’t have to invent their own solution to synchronizing URO enable/disable events.  After the miniport driver processes the **OID_TCP_OFFLOAD_PARAMETERS** OID request, it must give an NDIS_STATUS_TASK_OFFLOAD_CURRENT_CONFIG status indication with the updated offload state.
+
+The **NDIS_OFFLOAD_PARAMETERS_SKIP_REGISTRY_UPDATE** flag will be documented to allow URO to be disabled only at runtime, and not persisted to registry. [OID_TCP_OFFLOAD_HARDWARE_CAPABILITIES](https://learn.microsoft.com/en-us/windows-hardware/drivers/network/oid-tcp-offload-hardware-capabilities) will be used to advertise a miniport’s support of URO.
+
+All NDIS drivers which target NDIS 6.90 are assumed to at least understand URO packets and can handle them gracefully.
+A flag on the characteristics struct used when a LWF or protocol driver registers with NDIS will be used to indicate opt-out of URO support for drivers targeting 6.90 or higher.
+This ensures that any component that doesn’t understand URO won’t receive URO NBLs.
+NDIS will disable URO on the miniport during binding when an LWF or protocol driver that doesn’t support URO is present. 
+
 ## Headers
+
+### ndis.h
+```c
+//
+// Protocol driver flags
+//
+...
+#if NDIS_SUPPORT_NDIS690
+#define NDIS_PROTOCOL_DRIVER_UDP_RSC_OPT_OUT 0x00000008
+#endif // NDIS_SUPPORT_NDIS690
+
+//
+// Filter driver flags
+//
+...
+#if NDIS_SUPPORT_NDIS690
+#define NDIS_FILTER_DRIVER_UDP_RSC_OPT_OUT 0x00000008
+#endif //NDIS_SUPPORT_NDIS690
+```
 
 ### ntddndis.h
 
-These structures are new for this offload.
-```
-#if (NDIS_SUPPORT_NDIS690)
-//
-// values used in UDP RSC offload
-//
-#define NDIS_OFFLOAD_PARAMETERS_URO_DISABLED            1
-#define NDIS_OFFLOAD_PARAMETERS_URO_ENABLED             2
-#endif // (NDIS_SUPPORT_NDIS690)
-
+```c
 ...
-
 #if (NDIS_SUPPORT_NDIS690)
     struct
     {
@@ -85,27 +134,17 @@ These structures are new for this offload.
 ...
 
 #if (NDIS_SUPPORT_NDIS690)
-typedef struct _NDIS_UDP_RSC_OFFLOAD
-{
-    BOOLEAN Enabled;
-} NDIS_UDP_RSC_OFFLOAD, *PNDIS_UDP_RSC_OFFLOAD;
-#endif
-...
-
-#if (NDIS_SUPPORT_NDIS690)
     //
     // UDP RSC offload.
     //
     NDIS_UDP_RSC_OFFLOAD              UdpRsc;
 #endif
-
 } NDIS_OFFLOAD, *PNDIS_OFFLOAD;
 ```
 
-### nbluro.w
+### nbluro.h
 
-This header already exists today.
-```
+```c
 #if NDIS_SUPPORT_NDIS684
 
 //
@@ -125,5 +164,71 @@ typedef struct _NDIS_UDP_RSC_OFFLOAD_NET_BUFFER_LIST_INFO
     };
 } NDIS_UDP_RSC_OFFLOAD_NET_BUFFER_LIST_INFO, *PNDIS_UDP_RSC_OFFLOAD_NET_BUFFER_LIST_INFO;
 
+#if (NDIS_SUPPORT_NDIS690)
+
+//
+// values used in UDP RSC offload
+//
+#define NDIS_OFFLOAD_PARAMETERS_UDP_RSC_NO_CHANGE       0
+#define NDIS_OFFLOAD_PARAMETERS_UDP_RSC_DISABLED        1
+#define NDIS_OFFLOAD_PARAMETERS_UDP_RSC_ENABLED         2
+
+typedef struct _NDIS_UDP_RSC_OFFLOAD
+{
+    BOOLEAN Enabled;
+} NDIS_UDP_RSC_OFFLOAD, *PNDIS_UDP_RSC_OFFLOAD;
+
+#endif // (NDIS_SUPPORT_NDIS690)
+
+...
+
 #endif
 ```
+
+# NetAdapter
+## Headers
+### NetAdapterOffload.h
+```cpp
+typedef struct _NET_ADAPTER_OFFLOAD_RSC_CAPABILITIES
+{
+    ...
+    //
+    // Flags specifying on what layer 4 protocols the hardware can perform RSC
+    // NetAdapterOffloadLayer4FlagTcpNoOptions and NetAdapterOffloadLayer4FlagUdp are the only valid flag values,
+    // to indicate TCP and UDP support.
+    //
+    NET_ADAPTER_OFFLOAD_LAYER4_FLAGS
+        Layer4Flags;
+    ...
+
+} NET_ADAPTER_OFFLOAD_RSC_CAPABILITIES;
+```
+
+### RscTypes.h
+```cpp
+typedef struct _NET_PACKET_RSC
+{
+    union {
+        struct {
+            UINT16
+                CoalescedSegmentCount;
+
+            UINT16
+                DuplicateAckCount;
+        } TCP;
+        struct {
+            UINT16
+                CoalescedSegmentCount;
+
+            UINT16
+                CoalescedSegmentSize;
+        } UDP;
+    } DUMMYUNIONNAME;
+} NET_PACKET_RSC;
+
+C_ASSERT(sizeof(NET_PACKET_RSC) == 4);
+
+
+#define NET_PACKET_EXTENSION_RSC_VERSION_2 2U
+```
+
