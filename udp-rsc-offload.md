@@ -1,10 +1,9 @@
 # UDP Receive Segment Coalescing Offload (URO)
 
-> **Note**
-> This document is a work in progress.
+UDP RSC Offload (URO) is a hardware offload where the NIC coalesces UDP datagrams from the same flow that match a set of rules into a logically contiguous buffer. These are then indicated to the Windows networking stack as a single large packet. The benefit from coalescing is reduced CPU cost to process packets in high-bandwidth flows, resulting in higher throughput and lower cycles per byte. UDP protocols that transfer bulk data with their own headers can benefit from URO, however, the implementation will need to be updated to take advantage of URO. One such protocol, which already benefits from software URO, is QUIC.
 
-This document describes an offload called URO which offloads coalescing and reassembly of multiple UDP datagrams into a single contiguous buffer.
-In the absence of hardware support, the OS will attempt a best-effort software fallback.
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", “MAY", and "OPTIONAL" in this document are to be interpreted as described in [BCP 14](https://www.rfc-editor.org/bcp/bcp14) [RFC2119](https://www.rfc-editor.org/rfc/rfc2119) [RFC8174](https://www.rfc-editor.org/rfc/rfc8174) when, and only when, they appear in all capitals, as shown here.
+
 
 ## Table of Context
 
@@ -12,6 +11,7 @@ In the absence of hardware support, the OS will attempt a best-effort software f
 - [Winsock](#winsock)
 - [TCPIP](#tcpip)
 - [NDIS](#ndis)
+- [NetAdapter](#netadapter)
 
 # Rules
 URO coalescing can only be attempted on packets that meet all the following criteria:
@@ -94,7 +94,7 @@ Like RSC, URO will require the NIC to wait to complete the **OID_TCP_OFFLOAD_PAR
 The **NDIS_OFFLOAD_PARAMETERS_SKIP_REGISTRY_UPDATE** flag will be documented to allow URO to be disabled only at runtime, and not persisted to registry. [OID_TCP_OFFLOAD_HARDWARE_CAPABILITIES](https://learn.microsoft.com/en-us/windows-hardware/drivers/network/oid-tcp-offload-hardware-capabilities) will be used to advertise a miniport’s support of URO.
 
 All NDIS drivers which target NDIS 6.90 are assumed to at least understand URO packets and can handle them gracefully.
-A flag on the characteristics struct used when a LWF or protocol driver registers with NDIS will be used to indicate opt-out of URO support for drivers targeting 6.90 or higher.
+The **NDIS_FILTER_DRIVER_UDP_RSC_OPT_OUT** and **NDIS_PROTOCOL_DRIVER_UDP_RSC_OPT_OUT** flags can be set on the **NDIS_FILTER_DRIVER_CHARACTERISTICS**/**NDIS_PROTOCOL_DRIVER_CHARACTERISTICS** structs used when a LWF or protocol driver registers with NDIS to indicate opt-out of URO support for drivers targeting 6.90 or higher.
 This ensures that any component that doesn’t understand URO won’t receive URO NBLs.
 NDIS will disable URO on the miniport during binding when an LWF or protocol driver that doesn’t support URO is present. 
 
@@ -186,6 +186,7 @@ typedef struct _NDIS_UDP_RSC_OFFLOAD
 ```
 
 # NetAdapter
+NetAdapter client drivers can use the existing RSC structures and RSC API for URO. The Layer4Flags now accept UDP as a valid input. Behavior is the same as RSC, except when the `EvtAdapterOffloadSetRsc` callback disables URO, the driver is expected to indicate existing coalesced segments and wait until all outstanding URO indications are completed. This ensures there are no URO indications active once the callback returns.
 ## Headers
 ### NetAdapterOffload.h
 ```cpp
