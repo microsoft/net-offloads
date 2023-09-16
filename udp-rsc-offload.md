@@ -1,10 +1,9 @@
 # UDP Receive Segment Coalescing Offload (URO)
 
-> **Note**
-> This document is a work in progress.
+UDP RSC Offload (URO) is a hardware offload where the NIC coalesces UDP datagrams from the same flow that match a set of rules into a logically contiguous buffer. These are then indicated to the Windows networking stack as a single large packet. The benefit from coalescing is reduced CPU cost to process packets in high-bandwidth flows, resulting in higher throughput and lower cycles per byte. UDP protocols that transfer bulk data with their own headers can benefit from URO, however, the implementation will need to be updated to take advantage of URO. One such protocol, which already benefits from software URO, is QUIC.
 
-This document describes an offload called URO which offloads coalescing and reassembly of multiple UDP datagrams into a single contiguous buffer.
-In the absence of hardware support, the OS will attempt a best-effort software fallback.
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", “MAY", and "OPTIONAL" in this document are to be interpreted as described in [BCP 14](https://www.rfc-editor.org/bcp/bcp14) [RFC2119](https://www.rfc-editor.org/rfc/rfc2119) [RFC8174](https://www.rfc-editor.org/rfc/rfc8174) when, and only when, they appear in all capitals, as shown here.
+
 
 ## Table of Context
 
@@ -12,6 +11,7 @@ In the absence of hardware support, the OS will attempt a best-effort software f
 - [Winsock](#winsock)
 - [TCPIP](#tcpip)
 - [NDIS](#ndis)
+- [NetAdapter](#netadapter)
 
 # Rules
 URO coalescing can only be attempted on packets that meet all the following criteria:
@@ -19,14 +19,14 @@ URO coalescing can only be attempted on packets that meet all the following crit
 - IpHeader.SourceAddress and IpHeader.DestinationAddress are identical for all packets.
 - UdpHeader.SourcePort and UdpHeader.DestinationPort are identical for all packets.
 - UdpHeader.Length is identical for all packets, except the last packet, which may be less.
-- UdpHeader.Length must be non-zero.
-- UdpHeader.Checksum, if non-zero, must be correct on all packets. This means checksum offload must be enabled and set the checksum OOB info.
-- Layer 2 headers must be identical for all packets.
+- UdpHeader.Length MUST be non-zero.
+- UdpHeader.Checksum, if non-zero, MUST be correct on all packets. This means checksum offload MUST set the checksum OOB info.
+- Layer 2 headers MUST be identical for all packets.
   
 If the packets are IPv4, they MUST also meet the following criteria:
 - IPv4Header.Protocol == 17 (UDP) for all packets.
 - EthernetHeader.EtherType == 0x0800 for all packets.
-- The IPv4Header.HeaderChecksum on received packets must be correct. This means checksum offload must be enabled and set the checksum OOB info.
+- The IPv4Header.HeaderChecksum on received packets MUST be correct. This means checksum offload MUST set the checksum OOB info.
 - IPv4Header.HeaderLength == 5 (no IPv4 Option Headers) for all packets.
 - IPv4Header.ToS is identical for all packets.
 - IPv4Header.ECN is identical for all packets.
@@ -42,19 +42,19 @@ If the packets are IPv6, they MUST also meet the following criteria:
 - IPv6Header.HopLimit is identical for all packets.
 - IPv6Header.PayloadLength == UdpHeader.Length for all packets.
 
-The resulting Single Coalesced Unit (SCU) must have a single IP header and UDP header, followed by the UDP payload for all coalesced datagrams concatenated together.
+The resulting Single Coalesced Unit (SCU) MUST have a single IP header and UDP header, followed by the UDP payload for all coalesced datagrams concatenated together.
 
 URO indications MUST correctly calculate the IPv4Header.HeaderChecksum and UdpHeader.Checksum fields on the SCU.
 
 URO indications MUST set the IPv4Header.TotalLength field to the total length of the SCU, or IPv6Header.PayloadLength field to the length of the UDP payload, and UdpHeader.Length field to the length of coalesced payloads.
 
-If Layer 2 (L2) headers are present in coalesced datagrams, the SCU must contain a valid L2 header. The L2 header in the SCU MUST resemble the L2 header of the coalesced datagrams.
+If Layer 2 (L2) headers are present in coalesced datagrams, the SCU MUST contain a valid L2 header. The L2 header in the SCU MUST resemble the L2 header of the coalesced datagrams.
 
-Packets from multiple flows may be coalesced in parallel, as hardware and memory permit. Packets from different flows MUST NEVER be coalesced together.
+Packets from multiple flows may be coalesced in parallel, as hardware and memory permit. Packets from different flows MUST NOT be coalesced together.
 
 Packets from multiple receives interleaved may be separated and coalesced with their respective flows. i.e. Given flows A, B, and C, if packets arrive in the following order; A, A, B, C, B, A; the packets from the A flow may be coalesced into AAA, and the packets from the B flow coalesced into BB, while the packet from the C flow may be indicated normally or coalesced with a pending SCU from flow C.
 
-The packets within a given flow must NOT be reordered with respect to each other, i.e. the packets from the A flow must be coalesced in the order received, regardless of the packets from the B and C flows received in between.
+The packets within a given flow MUST NOT be reordered with respect to each other, i.e. the packets from the A flow must be coalesced in the order received, regardless of the packets from the B and C flows received in between.
 
 ```
 +------------------------------------------------------------------------------------------+
@@ -94,7 +94,7 @@ Like RSC, URO will require the NIC to wait to complete the **OID_TCP_OFFLOAD_PAR
 The **NDIS_OFFLOAD_PARAMETERS_SKIP_REGISTRY_UPDATE** flag will be documented to allow URO to be disabled only at runtime, and not persisted to registry. [OID_TCP_OFFLOAD_HARDWARE_CAPABILITIES](https://learn.microsoft.com/en-us/windows-hardware/drivers/network/oid-tcp-offload-hardware-capabilities) will be used to advertise a miniport’s support of URO.
 
 All NDIS drivers which target NDIS 6.90 are assumed to at least understand URO packets and can handle them gracefully.
-A flag on the characteristics struct used when a LWF or protocol driver registers with NDIS will be used to indicate opt-out of URO support for drivers targeting 6.90 or higher.
+The **NDIS_FILTER_DRIVER_UDP_RSC_OPT_OUT** and **NDIS_PROTOCOL_DRIVER_UDP_RSC_OPT_OUT** flags can be set on the **NDIS_FILTER_DRIVER_CHARACTERISTICS**/**NDIS_PROTOCOL_DRIVER_CHARACTERISTICS** structs used when a LWF or protocol driver registers with NDIS to indicate opt-out of URO support for drivers targeting 6.90 or higher.
 This ensures that any component that doesn’t understand URO won’t receive URO NBLs.
 NDIS will disable URO on the miniport during binding when an LWF or protocol driver that doesn’t support URO is present. 
 
@@ -186,6 +186,7 @@ typedef struct _NDIS_UDP_RSC_OFFLOAD
 ```
 
 # NetAdapter
+NetAdapter client drivers can use the existing RSC structures and RSC API for URO. The Layer4Flags now accept UDP as a valid input. Behavior is the same as RSC, except when the `EvtAdapterOffloadSetRsc` callback disables URO, the driver MUST indicate existing coalesced segments and wait until all outstanding URO indications are completed. This ensures there are no URO indications active once the callback returns.
 ## Headers
 ### NetAdapterOffload.h
 ```cpp
