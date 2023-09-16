@@ -20,13 +20,13 @@ URO coalescing can only be attempted on packets that meet all the following crit
 - UdpHeader.SourcePort and UdpHeader.DestinationPort are identical for all packets.
 - UdpHeader.Length is identical for all packets, except the last packet, which may be less.
 - UdpHeader.Length MUST be non-zero.
-- UdpHeader.Checksum, if non-zero, MUST be correct on all packets. This means checksum offload must be enabled and set the checksum OOB info.
-- Layer 2 headers must be identical for all packets.
+- UdpHeader.Checksum, if non-zero, MUST be correct on all packets. This means checksum offload MUST set the checksum OOB info.
+- Layer 2 headers MUST be identical for all packets.
   
 If the packets are IPv4, they MUST also meet the following criteria:
 - IPv4Header.Protocol == 17 (UDP) for all packets.
 - EthernetHeader.EtherType == 0x0800 for all packets.
-- The IPv4Header.HeaderChecksum on received packets MUST be correct. This means checksum offload must be enabled and set the checksum OOB info.
+- The IPv4Header.HeaderChecksum on received packets MUST be correct. This means checksum offload MUST set the checksum OOB info.
 - IPv4Header.HeaderLength == 5 (no IPv4 Option Headers) for all packets.
 - IPv4Header.ToS is identical for all packets.
 - IPv4Header.ECN is identical for all packets.
@@ -50,7 +50,7 @@ URO indications MUST set the IPv4Header.TotalLength field to the total length of
 
 If Layer 2 (L2) headers are present in coalesced datagrams, the SCU MUST contain a valid L2 header. The L2 header in the SCU MUST resemble the L2 header of the coalesced datagrams.
 
-Packets from multiple flows may be coalesced in parallel, as hardware and memory permit. Packets from different flows MUST NEVER be coalesced together.
+Packets from multiple flows may be coalesced in parallel, as hardware and memory permit. Packets from different flows MUST NOT be coalesced together.
 
 Packets from multiple receives interleaved may be separated and coalesced with their respective flows. i.e. Given flows A, B, and C, if packets arrive in the following order; A, A, B, C, B, A; the packets from the A flow may be coalesced into AAA, and the packets from the B flow coalesced into BB, while the packet from the C flow may be indicated normally or coalesced with a pending SCU from flow C.
 
@@ -186,7 +186,7 @@ typedef struct _NDIS_UDP_RSC_OFFLOAD
 ```
 
 # NetAdapter
-NetAdapter client drivers can use the existing RSC structures and RSC API for URO. The Layer4Flags now accept UDP as a valid input. Behavior is the same as RSC, except when the `EvtAdapterOffloadSetRsc` callback disables URO, the driver is expected to indicate existing coalesced segments and wait until all outstanding URO indications are completed. This ensures there are no URO indications active once the callback returns.
+NetAdapter client drivers can use the existing RSC structures and RSC API for URO. The Layer4Flags now accept UDP as a valid input. Behavior is the same as RSC, except when the `EvtAdapterOffloadSetRsc` callback disables URO, the driver MUST indicate existing coalesced segments and wait until all outstanding URO indications are completed. This ensures there are no URO indications active once the callback returns.
 ## Headers
 ### NetAdapterOffload.h
 ```cpp
