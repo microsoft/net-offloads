@@ -93,8 +93,8 @@ Like RSC, URO will require the NIC to wait to complete the **OID_TCP_OFFLOAD_PAR
 
 The **NDIS_OFFLOAD_PARAMETERS_SKIP_REGISTRY_UPDATE** flag will be documented to allow URO to be disabled only at runtime, and not persisted to registry. [OID_TCP_OFFLOAD_HARDWARE_CAPABILITIES](https://learn.microsoft.com/en-us/windows-hardware/drivers/network/oid-tcp-offload-hardware-capabilities) will be used to advertise a miniport’s support of URO.
 
-All NDIS drivers which target NDIS 6.90 are assumed to at least understand URO packets and can handle them gracefully.
-The **NDIS_FILTER_DRIVER_UDP_RSC_OPT_OUT** and **NDIS_PROTOCOL_DRIVER_UDP_RSC_OPT_OUT** flags can be set on the **NDIS_FILTER_DRIVER_CHARACTERISTICS**/**NDIS_PROTOCOL_DRIVER_CHARACTERISTICS** structs used when a LWF or protocol driver registers with NDIS to indicate opt-out of URO support for drivers targeting 6.90 or higher.
+All NDIS drivers which target NDIS 6.89 are assumed to at least understand URO packets and can handle them gracefully.
+The **NDIS_FILTER_DRIVER_UDP_RSC_OPT_OUT** and **NDIS_PROTOCOL_DRIVER_UDP_RSC_OPT_OUT** flags can be set on the **NDIS_FILTER_DRIVER_CHARACTERISTICS**/**NDIS_PROTOCOL_DRIVER_CHARACTERISTICS** structs used when a LWF or protocol driver registers with NDIS to indicate opt-out of URO support for drivers targeting 6.89 or higher.
 This ensures that any component that doesn’t understand URO won’t receive URO NBLs.
 NDIS will disable URO on the miniport during binding when an LWF or protocol driver that doesn’t support URO is present. 
 
@@ -106,34 +106,34 @@ NDIS will disable URO on the miniport during binding when an LWF or protocol dri
 // Protocol driver flags
 //
 ...
-#if NDIS_SUPPORT_NDIS690
+#if NDIS_SUPPORT_NDIS689
 #define NDIS_PROTOCOL_DRIVER_UDP_RSC_OPT_OUT 0x00000008
-#endif // NDIS_SUPPORT_NDIS690
+#endif // NDIS_SUPPORT_NDIS689
 
 //
 // Filter driver flags
 //
 ...
-#if NDIS_SUPPORT_NDIS690
+#if NDIS_SUPPORT_NDIS689
 #define NDIS_FILTER_DRIVER_UDP_RSC_OPT_OUT 0x00000008
-#endif //NDIS_SUPPORT_NDIS690
+#endif //NDIS_SUPPORT_NDIS689
 ```
 
 ### ntddndis.h
 
 ```c
 ...
-#if (NDIS_SUPPORT_NDIS690)
+#if (NDIS_SUPPORT_NDIS689)
     struct
     {
         UCHAR               Enabled;
     } UdpRsc;
-#endif // (NDIS_SUPPORT_NDIS690)
+#endif // (NDIS_SUPPORT_NDIS689)
 } NDIS_OFFLOAD_PARAMETERS, *PNDIS_OFFLOAD_PARAMETERS;
 
 ...
 
-#if (NDIS_SUPPORT_NDIS690)
+#if (NDIS_SUPPORT_NDIS689)
     //
     // UDP RSC offload.
     //
@@ -164,7 +164,7 @@ typedef struct _NDIS_UDP_RSC_OFFLOAD_NET_BUFFER_LIST_INFO
     };
 } NDIS_UDP_RSC_OFFLOAD_NET_BUFFER_LIST_INFO, *PNDIS_UDP_RSC_OFFLOAD_NET_BUFFER_LIST_INFO;
 
-#if (NDIS_SUPPORT_NDIS690)
+#if (NDIS_SUPPORT_NDIS689)
 
 //
 // values used in UDP RSC offload
@@ -178,7 +178,7 @@ typedef struct _NDIS_UDP_RSC_OFFLOAD
     BOOLEAN Enabled;
 } NDIS_UDP_RSC_OFFLOAD, *PNDIS_UDP_RSC_OFFLOAD;
 
-#endif // (NDIS_SUPPORT_NDIS690)
+#endif // (NDIS_SUPPORT_NDIS689)
 
 ...
 
