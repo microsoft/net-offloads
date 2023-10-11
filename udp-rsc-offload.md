@@ -20,13 +20,13 @@ URO coalescing can only be attempted on packets that meet all the following crit
 - UdpHeader.SourcePort and UdpHeader.DestinationPort are identical for all packets.
 - UdpHeader.Length is identical for all packets, except the last packet, which may be less.
 - UdpHeader.Length MUST be non-zero.
-- UdpHeader.Checksum, if non-zero, MUST be correct on all packets. This means checksum offload MUST set the checksum OOB info.
+- UdpHeader.Checksum, if non-zero, MUST be correct on all packets. This means receive checksum offload MUST validate the packet.
 - Layer 2 headers MUST be identical for all packets.
   
 If the packets are IPv4, they MUST also meet the following criteria:
 - IPv4Header.Protocol == 17 (UDP) for all packets.
 - EthernetHeader.EtherType == 0x0800 for all packets.
-- The IPv4Header.HeaderChecksum on received packets MUST be correct. This means checksum offload MUST set the checksum OOB info.
+- The IPv4Header.HeaderChecksum on received packets MUST be correct. This means receive checksum offload MUST validate the header.
 - IPv4Header.HeaderLength == 5 (no IPv4 Option Headers) for all packets.
 - IPv4Header.ToS is identical for all packets.
 - IPv4Header.ECN is identical for all packets.
@@ -44,7 +44,10 @@ If the packets are IPv6, they MUST also meet the following criteria:
 
 The resulting Single Coalesced Unit (SCU) MUST have a single IP header and UDP header, followed by the UDP payload for all coalesced datagrams concatenated together.
 
-URO indications MUST correctly calculate the IPv4Header.HeaderChecksum and UdpHeader.Checksum fields on the SCU.
+URO indications MUST set the IPv4Header.HeaderChecksum and UdpHeader.Checksum fields to zero and fill out the checksum offload OOB on the SCU indicating IPv4 and UDP checksum success.
+
+A packet that matches all conditions for being coalesced except fails checksum validation, MUST be indicated separately and packets received after it MUST NOT be coalesced with packets received before it. 
+For example, suppose packets 1, 2, 3, 4, 5 are received from the same flow and would be coalesced together, but packet 3 fails checksum validation. In that case, packets 1 and 2 can be coalesced together, and packets 4 and 5 can be coalesced together, but packet 3 MUST NOT be coalesced with either SCU, and packets 1, 2, 4, and 5 MUST NOT be coalesced together. Effectively, Packet 2 is the last packet in an SCU and packet 4 starts a new SCU. Additionally, the SCU containing packets 1 and 2 MUST be indicated before packet 3 is indicated and packet 3 MUST be indicated before the SCU containing packets 4 and 5.
 
 URO indications MUST set the IPv4Header.TotalLength field to the total length of the SCU, or IPv6Header.PayloadLength field to the length of the UDP payload, and UdpHeader.Length field to the length of coalesced payloads.
 
