@@ -26,29 +26,29 @@ Traditional RSS uses hash functions based on the IP and TCP/UDP headers, which i
 
 To support QUIC connection ID hashing in NDIS RSS, several architectural changes are required:
 
-·         Update Hashing Algorithm: Modify the existing hashing algorithm to include QUIC connection IDs in addition to IP and transport layer headers.
+- Update Hashing Algorithm: Modify the existing hashing algorithm to include QUIC connection IDs in addition to IP and transport layer headers.
 
-·         Driver Updates: NIC drivers need to be updated to recognize and process QUIC packets, extracting the connection ID for hashing purposes.
+- Driver Updates: NIC drivers need to be updated to recognize and process QUIC packets, extracting the connection ID for hashing purposes.
 
-·         RSS Configuration: Update the RSS configuration to support the new hashing mechanism, ensuring backward compatibility with traditional protocols.
+- RSS Configuration: Update the RSS configuration to support the new hashing mechanism, ensuring backward compatibility with traditional protocols.
 
 ### NDIS Driver API Changes
 
 #### NDIS\_RECEIVE\_SCALE\_CAPABILITIES
 
-1.      Add new `NDIS_RSS_CAPS_FLAGS` definition(s) for QUIC CID hashing capabilities.
+1. Add new `NDIS_RSS_CAPS_FLAGS` definition(s) for QUIC CID hashing capabilities.
 
-2.      Add any new fields needed, if some capabilities are inexpressible via simple flags
+2. Add any new fields needed, if some capabilities are inexpressible via simple flags
 
-3.      Create new struct revision and size macros.
+3. Create new struct revision and size macros.
 
 ####  NDIS\_RECEIVE\_SCALE\_PARAMETERS
 
-1.      Add new `NDIS_HASH_FLAGS` definition(s) for QUIC CID hashing configuration.
+1. Add new `NDIS_HASH_FLAGS` definition(s) for QUIC CID hashing configuration.
 
-2.      Add any new fields needed, such as CID hash offset and size, or perhaps an array of CID hash offsets and size based on local IP/port tuple.
+2. Add any new fields needed, such as CID hash offset and size, or perhaps an array of CID hash offsets and size based on local IP/port tuple.
 
-3.      Create new struct revision and size macros.
+3. Create new struct revision and size macros.
 
 ## NDIS.sys Changes
 
@@ -72,15 +72,15 @@ Some components (e.g. XDP-for-Windows) may use the new NDIS structures via NDIS 
 
 ## Steps to Implement QUIC Connection ID Hashing
 
-1.      Identify QUIC Packets: Modify the NIC driver to identify QUIC packets. This involves inspecting the packet headers to recognize the QUIC protocol and extract the connection ID.
+1. Identify QUIC Packets: Modify the NIC driver to identify QUIC packets. This involves inspecting the packet headers to recognize the QUIC protocol and extract the connection ID.
 
-2.      Extract Connection ID: Implement logic within the driver to extract the QUIC connection ID from the packet header.
+2. Extract Connection ID: Implement logic within the driver to extract the QUIC connection ID from the packet header.
 
-3.      Hash Function Update: Update the RSS hash function to incorporate the QUIC connection ID. The hash output should determine the appropriate CPU for processing.
+3. Hash Function Update: Update the RSS hash function to incorporate the QUIC connection ID. The hash output should determine the appropriate CPU for processing.
 
-4.      Configuration and Tuning: Update the RSS configuration settings to enable QUIC connection ID hashing. This may include tuning parameters to optimize performance for specific workloads.
+4. Configuration and Tuning: Update the RSS configuration settings to enable QUIC connection ID hashing. This may include tuning parameters to optimize performance for specific workloads.
 
-5.      Testing and Validation: Conduct thorough testing to validate the implementation. This includes performance benchmarks, compatibility checks with existing protocols, and stress testing under various network conditions.
+5. Testing and Validation: Conduct thorough testing to validate the implementation. This includes performance benchmarks, compatibility checks with existing protocols, and stress testing under various network conditions.
 
 ## Challenges and Considerations
 
