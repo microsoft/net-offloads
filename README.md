@@ -4,6 +4,7 @@ This repository is for defining various networking hardware offload specificatio
 be published at a more standard location (TBD).
 
 - [UDP RSC Offload](udp-rsc-offload.md) - Offloading UDP datagram coalescing and reassembly.
+- [QUIC RSS Offload](quic-rss-offload.md) - QUIC Connection ID based RSS.
 - [QUIC Encryption Offload](quic-encryption-offload.md) - Offloading QUIC short header packet encryption and decryption.
 - [Time based Packet Transmission Offload](time-based-packet-transmission-offload.md) - Offloading per packet transmission timestamps.
 
